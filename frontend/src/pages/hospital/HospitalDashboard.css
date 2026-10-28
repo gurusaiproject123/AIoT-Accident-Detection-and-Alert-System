@@ -1,0 +1,87 @@
+.hospital-dashboard {
+  --hospital-bg: #f5f7fb;
+  --hospital-surface: #ffffff;
+  --hospital-text: #172033;
+  --hospital-muted: #64748b;
+  --hospital-border: #e2e8f0;
+  --hospital-primary: #1d4ed8;
+
+  min-width: 0;
+  padding: 28px;
+  background: var(--hospital-bg);
+  color: var(--hospital-text);
+  font-family: Inter, "Segoe UI", sans-serif;
+}
+
+.hospital-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  margin: 24px 0;
+}
+
+.hospital-card {
+  padding: 24px;
+  background: var(--hospital-surface);
+  border: 1px solid var(--hospital-border);
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgb(15 23 42 / 4%);
+}
+
+.hospital-card__value {
+  margin: 12px 0 4px;
+  font-size: 36px;
+  font-weight: 700;
+}
+
+.hospital-table-wrapper {
+  overflow-x: auto;
+  background: var(--hospital-surface);
+  border: 1px solid var(--hospital-border);
+  border-radius: 16px;
+}
+
+.hospital-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.hospital-table th,
+.hospital-table td {
+  padding: 16px 20px;
+  text-align: left;
+  border-bottom: 1px solid var(--hospital-border);
+}
+
+.hospital-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 13px;
+}
+
+.hospital-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.hospital-dashboard button {
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.hospital-dashboard button:focus-visible,
+.hospital-dashboard input:focus-visible,
+.hospital-dashboard select:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+}
+
+@media (max-width: 700px) {
+  .hospital-dashboard {
+    padding: 16px;
+  }
+
+  .hospital-summary {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
