@@ -5,6 +5,7 @@ import {
   Route,
   Routes,
 } from "react-router";
+import Login from "./pages/auth/Login";
 import "./App.css";
 
 const pages = [
@@ -37,6 +38,16 @@ const pages = [
 export default function App() {
   return (
     <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/*" element={<DashboardPreview />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+function DashboardPreview() {
+  return (
       <div className="app-layout">
         <aside className="sidebar">
           <h2>AI GURUS</h2>
@@ -69,10 +80,10 @@ export default function App() {
           <Routes>
             <Route
               path="/"
-              element={<Navigate to="/hospital" replace />}
+              element={<Navigate to="/login" replace />}
             />
 
-            {pages.map((page) => (
+            {pages.filter((page) => page.path !== "/login").map((page) => (
               <Route
                 key={page.path}
                 path={page.path}
@@ -97,6 +108,5 @@ export default function App() {
           </Routes>
         </main>
       </div>
-    </BrowserRouter>
   );
 }
