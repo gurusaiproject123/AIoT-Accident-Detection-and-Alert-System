@@ -1,7 +1,9 @@
+import HospitalDashboard from "./pages/hospital/HospitalDashboard";
 import {
   BrowserRouter,
   Navigate,
   NavLink,
+  Outlet,
   Route,
   Routes,
 } from "react-router";
@@ -11,8 +13,6 @@ const pages = [
   {
     path: "/hospital",
     title: "Hospital Dashboard",
-    description:
-      "Hospital alerts, incident locations and response history will appear here.",
   },
   {
     path: "/superuser",
@@ -34,45 +34,66 @@ const pages = [
   },
 ];
 
+// Shared placeholder layout for the other project modules.
+// The hospital dashboard provides its own layout.
+function SharedLayout() {
+  return (
+    <div className="app-layout">
+      <aside className="sidebar">
+        <h2>AI GURUS</h2>
+        <p>Accident Detection System</p>
+
+        <nav aria-label="Main navigation">
+          {pages.map((page) => (
+            <NavLink
+              key={page.path}
+              to={page.path}
+              className={({ isActive }) =>
+                isActive ? "nav-link active" : "nav-link"
+              }
+            >
+              {page.title}
+            </NavLink>
+          ))}
+        </nav>
+      </aside>
+
+      <main className="main-content">
+        <header>
+          <h1>AIoT Accident Detection and Alert System</h1>
+
+          <p className="preview-notice">
+            Development preview — authentication, backend and
+            vehicle connections are not configured yet.
+          </p>
+        </header>
+
+        <Outlet />
+      </main>
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter>
-      <div className="app-layout">
-        <aside className="sidebar">
-          <h2>AI GURUS</h2>
-          <p>Accident Detection System</p>
+      <Routes>
+        <Route
+          path="/"
+          element={<Navigate to="/hospital" replace />}
+        />
 
-          <nav aria-label="Main navigation">
-            {pages.map((page) => (
-              <NavLink
-                key={page.path}
-                to={page.path}
-                className={({ isActive }) =>
-                  isActive ? "nav-link active" : "nav-link"
-                }
-              >
-                {page.title}
-              </NavLink>
-            ))}
-          </nav>
-        </aside>
+        {/* Hospital pages use their own sidebar and header. */}
+        <Route
+          path="/hospital/*"
+          element={<HospitalDashboard />}
+        />
 
-        <main className="main-content">
-          <header>
-            <h1>AIoT Accident Detection and Alert System</h1>
-            <p className="preview-notice">
-              Development preview — authentication, backend and
-              vehicle connections are not configured yet.
-            </p>
-          </header>
-
-          <Routes>
-            <Route
-              path="/"
-              element={<Navigate to="/hospital" replace />}
-            />
-
-            {pages.map((page) => (
+        {/* Other modules keep the existing shared layout. */}
+        <Route element={<SharedLayout />}>
+          {pages
+            .filter((page) => page.path !== "/hospital")
+            .map((page) => (
               <Route
                 key={page.path}
                 path={page.path}
@@ -85,18 +106,17 @@ export default function App() {
               />
             ))}
 
-            <Route
-              path="*"
-              element={
-                <section className="page-panel">
-                  <h2>Page not found</h2>
-                  <p>Select a page from the navigation.</p>
-                </section>
-              }
-            />
-          </Routes>
-        </main>
-      </div>
+          <Route
+            path="*"
+            element={
+              <section className="page-panel">
+                <h2>Page not found</h2>
+                <p>Select a page from the navigation.</p>
+              </section>
+            }
+          />
+        </Route>
+      </Routes>
     </BrowserRouter>
   );
 }

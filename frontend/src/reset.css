@@ -1,0 +1,2 @@
+/* Standalone preview only. Do not copy this reset over your existing app CSS. */
+html,body,#root{margin:0;min-height:100%;}body{background:#f5f8f8;}button,input,textarea,select{font:inherit;}
