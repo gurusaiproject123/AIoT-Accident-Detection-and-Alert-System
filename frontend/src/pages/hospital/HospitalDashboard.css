@@ -3293,3 +3293,99 @@
     font-size: 13px;
   }
 }
+
+/* Typography matched to the supplied superuser dashboard.
+   Text only: existing glass, photograph, gradients, blur, shadows and animation stay intact. */
+.hd-app {
+  --ink: #10292c;
+  --muted: #526a6e;
+  color: #10292c;
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+.hd-main h1 { font-size: 28px; font-weight: 700; color: #10292c; }
+.hd-page-heading .hd-subtitle { font-size: 13px; line-height: 1.6; color: #526a6e; }
+.hd-eyebrow { font-size: 10.5px; font-weight: 600; color: #526a6e; }
+.hd-heading-date { font-size: 12.5px; color: #526a6e; }
+.hd-breadcrumb { font-size: 13px; color: #526a6e; }
+.hd-breadcrumb strong { color: #2e4548; font-weight: 600; }
+.hd-demo-label { font-size: 10px; font-weight: 600; color: #526a6e; }
+.hd-brand small { font-size: 9.5px; color: #b9cbc9; }
+.hd-hospital-switch strong { font-size: 13px; color: #f3fcf8; }
+.hd-hospital-switch small { font-size: 11px; color: #b9cbc9; }
+.hd-nav-label { font-size: 10px; color: #afc6c2; }
+.hd-nav-item { font-size: 13.5px; font-weight: 500; color: #c4d7d3; }
+.hd-nav-item.is-active { color: #b8f5e4; }
+.hd-sidebar-note strong { font-size: 13px; color: #ffffff; }
+.hd-sidebar-note p { font-size: 11.5px; line-height: 1.55; color: #c0d4cf; }
+.hd-user strong { font-size: 12.5px; color: #ffffff; }
+.hd-user small { font-size: 11px; color: #b9cbc9; }
+.hd-section-title h2 { font-size: 15px; font-weight: 600; color: #10292c; }
+.hd-section-title > span { font-size: 11.5px; color: #526a6e; }
+.hd-panel-title h2 { font-size: 14.5px; font-weight: 600; color: #10292c; }
+.hd-panel-title p { font-size: 12px; line-height: 1.55; color: #526a6e; }
+.hd-panel-footer { font-size: 11.5px; color: #526a6e; }
+.hd-stat-top { font-size: 12.5px; font-weight: 500; color: #2e4548; }
+.hd-stat > strong { font-size: 30px; font-weight: 700; color: #10292c; }
+.hd-stat > p { font-size: 11.5px; color: #526a6e; }
+.hd-button { font-size: 13px; font-weight: 500; }
+.hd-button-mint { font-size: 12.5px; font-weight: 600; }
+.hd-text-link, .hd-row-link { font-size: 12.5px; font-weight: 600; color: #14605a !important; }
+.hd-search input, .hd-filter-label select, .hd-app textarea,
+.hd-confirm-dialog input, .hd-confirm-dialog select { font-size: 13px; color: #10292c; }
+.hd-filter-label, .hd-results { font-size: 12px; color: #526a6e; }
+.hd-table { font-size: 13px; }
+.hd-table td { font-size: 13px; color: #2e4548; }
+.hd-table td strong { font-size: 13px; font-weight: 600; color: #10292c; }
+.hd-table th { font-size: 11px; font-weight: 600; color: #526a6e; }
+.hd-table small { font-size: 11.5px; color: #526a6e; }
+.hd-badge { font-size: 11.5px; font-weight: 600; }
+.hd-status-new { color: #b22e38; }
+.hd-status-acknowledged { color: #80580a; }
+.hd-status-accepted { color: #315cac; }
+.hd-status-closed { color: #23734f; }
+.hd-status-declined, .hd-status-escalated { color: #724caa; }
+.hd-count { font-size: 11px; font-weight: 600; color: #526a6e; }
+.hd-activity-row strong { font-size: 13px; font-weight: 600; color: #10292c; }
+.hd-activity-row p { font-size: 12px; line-height: 1.55; color: #2e4548; }
+.hd-activity-row > small { font-size: 11px; color: #526a6e; }
+.hd-history-row p, .hd-detail-timeline strong { font-size: 13px; color: #2e4548; }
+.hd-history-row small, .hd-detail-timeline small { font-size: 11.5px; color: #526a6e; }
+.hd-contact-fields dt { font-size: 11.5px; font-weight: 600; color: #526a6e; }
+.hd-contact-fields dd { font-size: 13px; color: #10292c; }
+.hd-identity-heading p, .hd-identity-card .hd-footnote { font-size: 11.5px; color: #526a6e; }
+.hd-detail-body h4 { font-size: 14px; font-weight: 600; color: #10292c; }
+.hd-detail-location strong { font-size: 13px; color: #14605a; }
+.hd-detail-location p, .hd-detail-status { font-size: 12px; color: #526a6e; }
+.hd-footnote, .hd-detail-body .hd-footnote { font-size: 12px; line-height: 1.6; color: #526a6e; }
+.hd-location-list strong { font-size: 13px; color: #10292c; }
+.hd-location-list small { font-size: 11.5px; color: #526a6e; }
+.hd-setting-row strong { font-size: 13px; color: #10292c; }
+.hd-setting-row p { font-size: 11.5px; color: #526a6e; }
+.hd-readiness h3, .hd-report-summary h2 { color: #10292c; }
+.hd-readiness p, .hd-report-summary p, .hd-report-hero p { font-size: 13px; color: #2e4548; }
+.hd-health-status p, .hd-health-devices span { font-size: 12px; color: #526a6e; }
+.hd-footer { font-size: 11.5px; color: #526a6e; }
+.hd-hero h2 { font-weight: 700; color: #ffffff; }
+.hd-hero h2 > span { color: #a7e6d2; }
+.hd-hero p { font-size: 13px; line-height: 1.6; color: #d9ebe8; }
+.hd-hero-copy > small { font-size: 10.5px; color: #c0d6d0; }
+.hd-hero-kicker { font-size: 10px; font-weight: 600; color: #c8f5e6; }
+.hd-float-chip { font-size: 10.5px; color: #e6f6ef; }
+.hd-confirm-dialog label { font-size: 12.5px; font-weight: 600; color: #2e4548; }
+.hd-confirm-dialog > p, .hd-confirm-dialog .hd-footnote { font-size: 12.5px; color: #526a6e; }
+.hd-alarm-banner strong { font-size: 13px; }
+.hd-alarm-banner p { font-size: 12px; }
+.hd-alarm-banner .hd-button { font-size: 12px; }
+@media (max-width: 700px) {
+  .hd-main h1 { font-size: 23px; }
+  .hd-hero h2 { font-size: 26px; }
+  .hd-breadcrumb { font-size: 11.5px; }
+  .hd-demo-label { font-size: 8.5px; }
+  .hd-stat-top { font-size: 12.5px; }
+  .hd-stat > p { font-size: 11.5px; }
+  .hd-panel-title h2 { font-size: 14.5px; }
+  .hd-panel-title p { font-size: 12px; }
+}
