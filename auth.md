@@ -2,7 +2,9 @@
 
 ## Current implementation
 
-This change is strictly frontend UI. `/login` provides a responsive email/password form, browser validation, password visibility control, and an accessible feedback area. Submitting valid fields shows an explicit preview message. It does not send or store credentials, create a session, or grant access. `/` opens the login screen.
+This change is strictly frontend UI. `/login` provides a responsive email/password form, browser validation, password visibility control, and an accessible feedback area. `/` opens the login screen.
+
+The form now simulates sign-in with an 800ms loading state and disabled submission/fields. Use `demo@example.org` and `DemoPreview123!` for success; other credentials show an error. These are public demo values, not real account credentials. No network request is made. Only the string `true` is saved under `aiot.preview.signedIn` in localStorage; passwords, email addresses, tokens, and roles are never saved. Refresh restores the demo success message. The Clear demo session button removes the flag, and storage failures display an error. This flag grants no dashboard permissions and must not be used as proof of authentication. Replace this simulation with the real integration described below.
 
 Existing `/hospital`, `/superuser`, and `/vehicle` pages remain development previews and are not protected. There is no role selector. No Supabase library, client, auth context, route guard, or backend code has been added. Those files should be created when real authentication is connected, so empty utilities cannot be mistaken for working security.
 
@@ -37,7 +39,7 @@ Existing `/hospital`, `/superuser`, and `/vehicle` pages remain development prev
 
 ## Verification
 
-For the current UI, check `/login` at laptop and phone widths, keyboard focus order, show/hide password, required fields, invalid email, and the preview message after valid submission. No real credentials are needed. There is no simulated authentication success or fake network delay.
+For the current UI, check `/login` at laptop and phone widths, keyboard focus order, show/hide password, required fields, and invalid email. Submit the public demo credentials to check loading, disabled controls, success, refresh persistence, and clearing the saved flag. Submit different credentials to check failure. Block browser storage to check storage errors. Navigate away during loading to check timer cleanup. No real credentials are needed.
 
 After integration, test correct/incorrect credentials, both role destinations, users without roles, expired sessions, unavailable profile service, direct protected URLs while signed out, hospital staff accessing `/superuser`, session restoration on refresh, and logout. Verify backend authorization independently.
 
