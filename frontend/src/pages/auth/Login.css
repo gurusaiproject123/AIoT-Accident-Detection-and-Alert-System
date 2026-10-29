@@ -24,6 +24,12 @@
 .login-message { min-height: 48px; padding: 10px 0; font-size: 13px; line-height: 1.5; color: #805117; }
 .login-submit { width: 100%; min-height: 50px; display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; border: 0; border-radius: 8px; background: #14786f; color: white; font-weight: 700; cursor: pointer; }
 .login-submit:hover { background: #105f59; }
+.login-card :disabled { cursor: wait; opacity: .65; }
+.login-message--error { color: #a32121; }
+.login-message--success { color: #106458; }
+.login-demo { margin-top: 20px; padding: 14px; border: 1px solid #dbe3ec; border-radius: 8px; background: #edf4f7; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.login-demo p { margin: 0 0 10px; }
+.login-demo button { min-height: 44px; padding: 8px 12px; border: 1px solid #bac8d5; border-radius: 6px; background: white; color: #172b4d; cursor: pointer; }
 .login-card :is(input, button):focus-visible { outline: 3px solid #d89721; outline-offset: 3px; }
 .login-support { text-align: center; margin: 26px 0; }
 .login-preview { border-top: 1px solid #dbe3ec; padding-top: 22px; text-align: center; font-size: 12px; color: #58677a; line-height: 1.6; }
