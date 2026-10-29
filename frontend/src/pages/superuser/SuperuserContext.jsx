@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SuperuserContext } from "./useSuperuser";
 import { DEMO_ACTOR, STORAGE_KEY, buildSeed, nextId } from "./data";
+import { validateUserAssignment, publicUserRecord } from "./userRules";
 
 /*
  * SuperuserProvider
@@ -21,7 +22,8 @@ function loadInitialState() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.incidents) && Array.isArray(parsed.hospitals)) {
-        return { ...buildSeed(), ...parsed };
+        const state = { ...buildSeed(), ...parsed };
+        return { ...state, users: (Array.isArray(state.users) ? state.users : buildSeed().users).map(publicUserRecord) };
       }
     }
   } catch {
@@ -424,8 +426,14 @@ export default function SuperuserProvider({ children }) {
 
   const saveUser = useCallback(
     (user) => {
+      const errors = validateUserAssignment(user, data.hospitals, data.owners ?? []);
+      if (Object.keys(errors).length) return { ok: false, error: Object.values(errors)[0] };
+      if (user.role === "car_owner" && data.users.some(u => u.role === "car_owner" && u.ownerId === user.ownerId && u.id !== user.id)) {
+        return { ok: false, error: "This registered owner already has a login account." };
+      }
       const isNew = !user.id;
       const existing = data.users.find((u) => u.id === user.id);
+      if (!isNew && !existing) return { ok: false, error: "User not found." };
       const losesSuperuser =
         existing?.role === "superuser" &&
         existing.status === "active" &&
@@ -441,11 +449,11 @@ export default function SuperuserProvider({ children }) {
       }
 
       const id = isNew ? nextId("USR", data.users) : user.id;
-      const record = {
-        ...user,
-        id,
-        hospitalId: user.role === "hospital_staff" ? user.hospitalId : null,
-      };
+      const record = publicUserRecord({
+        ...existing, id, name: user.name.trim(), email: user.email.trim().toLowerCase(),
+        role: user.role, hospitalId: user.role === "hospital_staff" ? user.hospitalId : null,
+        ownerId: user.role === "car_owner" ? user.ownerId : null,
+      });
       commit(
         (state) => ({
           ...state,
@@ -455,15 +463,15 @@ export default function SuperuserProvider({ children }) {
         }),
         {
           category: "user",
-          action: isNew ? "Invited user" : "Updated role assignment",
+          action: isNew ? "Added demo user" : "Updated role assignment",
           target: record.email,
-          detail: `Role: ${record.role}${record.hospitalId ? ` · Hospital: ${record.hospitalId}` : ""}.`,
+          detail: `Role: ${record.role}${record.hospitalId ? ` · Hospital: ${record.hospitalId}` : record.ownerId ? ` · Owner: ${record.ownerId}` : ""}.`,
         },
       );
-      notify(isNew ? `${record.name} added.` : `${record.name} updated.`);
+      notify(isNew ? `${record.name} added to demo only — no login created.` : `${record.name} updated.`);
       return { ok: true };
     },
-    [activeSuperusers.length, commit, data.users, notify],
+    [activeSuperusers.length, commit, data.users, data.hospitals, data.owners, notify],
   );
 
   const toggleUser = useCallback(
@@ -471,6 +479,10 @@ export default function SuperuserProvider({ children }) {
       const user = data.users.find((u) => u.id === id);
       if (!user) return { ok: false };
       const suspend = user.status === "active";
+      if (!suspend && Object.keys(validateUserAssignment(user, data.hospitals, data.owners ?? [])).length) {
+        notify("Correct the user's role and hospital assignment before reactivating.", "red");
+        return { ok: false };
+      }
       if (suspend && user.role === "superuser" && activeSuperusers.length <= 1) {
         notify("At least one active superuser must remain.", "red");
         return { ok: false };
@@ -492,7 +504,7 @@ export default function SuperuserProvider({ children }) {
       notify(`${user.name} ${suspend ? "suspended" : "reactivated"}.`, suspend ? "grey" : "green");
       return { ok: true };
     },
-    [activeSuperusers.length, commit, data.users, notify],
+    [activeSuperusers.length, commit, data.users, data.hospitals, data.owners, notify],
   );
 
   /* -------------------------- Preferences ------------------------- */

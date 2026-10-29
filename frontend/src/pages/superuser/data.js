@@ -61,9 +61,9 @@ export const GPS_STATUS = {
 };
 
 export const ROLES = {
+  car_owner: { label: "Car owner", tone: "green" },
   superuser: { label: "Superuser", tone: "purple" },
   hospital_staff: { label: "Hospital staff", tone: "blue" },
-  unassigned: { label: "No role assigned", tone: "grey" },
 };
 
 export const USER_STATUS = {
@@ -280,14 +280,19 @@ export function buildSeed(now = Date.now()) {
     },
     {
       id: "USR-006",
-      name: "New team member",
-      email: "pending.user@example.com",
-      role: "unassigned",
-      hospitalId: null,
+      name: "Demo reception colleague",
+      email: "reception.bindura@example.com",
+      role: "hospital_staff",
+      hospitalId: "HSP-001",
       status: "active",
       lastSignIn: null,
     },
   ];
+
+  users.push({
+    id: "USR-007", name: "Demo emergency desk colleague", email: "desk.bindura@example.com",
+    role: "hospital_staff", hospitalId: "HSP-001", status: "active", lastSignIn: null,
+  });
 
   const incidents = [
     {
@@ -444,7 +449,11 @@ export function buildSeed(now = Date.now()) {
     { id: "AUD-0001", at: ago(60 * DAY), actor: "Demo superuser", role: "superuser", category: "hospital", action: "Registered hospital", target: "HSP-004 Harare Central Hospital", detail: "Added to the notification network." },
   ];
 
-  return { hospitals, devices, users, incidents, audit, preferences: { animations: true } };
+  const owners = devices.map((device, index) => ({
+    id: `OWN-${String(index + 1).padStart(3, "0")}`, name: device.owner,
+    vehicleIds: [device.id], registrations: [device.vehicle],
+  }));
+  return { hospitals, devices, owners, users, incidents, audit, preferences: { animations: true } };
 }
 
 /* ------------------------------------------------------------------ */

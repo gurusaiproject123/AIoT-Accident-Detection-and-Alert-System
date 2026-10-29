@@ -111,7 +111,7 @@ export default function SuperuserLayout({ embedded = false }) {
             </span>
             <div>
               <strong>System control</strong>
-              <small>SU-001 · Superuser</small>
+              <small>Superuser · No hospital assignment</small>
             </div>
             <Icon name="checkCircle" size={16} className="su-org-check" />
           </div>
@@ -149,7 +149,7 @@ export default function SuperuserLayout({ embedded = false }) {
               <strong>System administrator</strong>
               <small>Demo superuser account</small>
             </div>
-            <Link to="/login" className="su-icon-btn su-logout" aria-label="Sign out" title="Sign out">
+            <Link to="/login" className="su-icon-btn su-logout" aria-label="Open login (demo)" title="Open login; the demo has no authenticated session">
               <Icon name="logout" size={16} />
             </Link>
           </div>
@@ -240,7 +240,7 @@ export default function SuperuserLayout({ embedded = false }) {
               {countdowns.map(({ incident, remaining }) => (
                 <p key={incident.id}>
                   <strong>{incident.id}</strong> suspected accident from{" "}
-                  <span className="su-mono">{incident.deviceId}</span> — local cancellation window:{" "}
+                  <span className="su-mono">{incident.deviceId}</span> — 30-second false-alarm window:{" "}
                   <strong>{remaining}s</strong> remaining before hospitals are notified.
                 </p>
               ))}

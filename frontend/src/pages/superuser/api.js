@@ -75,3 +75,16 @@ export const closeIncident = (token, id, note) =>
     body: JSON.stringify({ note }),
   });
 
+
+/** Planned FastAPI endpoint, not called by the local demo. Never persist passwords. */
+export function createUser(token, { name, email, role, hospitalId, ownerId, password }) {
+  if (!token) throw new Error("A verified administrator session is required.");
+  if (!["hospital_staff","superuser","car_owner"].includes(role)) throw new Error("Unsupported user role.");
+  if (role === "hospital_staff" && !hospitalId) throw new Error("Select one hospital.");
+  if (role !== "hospital_staff" && hospitalId) throw new Error("This account type has no hospital assignment.");
+  if (role === "car_owner" && !ownerId) throw new Error("Select the registered owner.");
+  if (!password) throw new Error("An email/password account requires a password.");
+  return adminRequest(ADMIN_ENDPOINTS.users, token, {
+    method:"POST", body:JSON.stringify({full_name:name,email,role,hospital_id:hospitalId ?? null,owner_id:role === "car_owner" ? ownerId : null,password}),
+  });
+}

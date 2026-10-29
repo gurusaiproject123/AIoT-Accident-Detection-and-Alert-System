@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router";
 import Icon from "../components/Icon";
 import HospitalForm from "../components/HospitalForm";
 import { Badge, ConfirmDialog, EmptyState, FilterTabs, PageHeading, SearchInput } from "../components/ui";
@@ -17,7 +18,7 @@ export default function Hospitals() {
     .filter((h) => filter === "all" || (filter === "active" ? h.active : !h.active))
     .filter((h) => !text || [h.id, h.name, h.city, h.email].join(" ").toLowerCase().includes(text));
 
-  const staffCount = (id) => users.filter((u) => u.hospitalId === id && u.status === "active").length;
+  const staffCount = (id) => users.filter((u) => u.role === "hospital_staff" && u.hospitalId === id && u.status === "active").length;
   const openCount = (id) =>
     incidents.filter(
       (i) =>
@@ -108,6 +109,9 @@ export default function Hospitals() {
               </div>
 
               <footer>
+                <Link className="su-btn su-btn-outline su-btn-sm" to={`/superuser/users?hospital=${encodeURIComponent(hospital.id)}`}>
+                  <Icon name="users" size={14} /> View staff
+                </Link>
                 <button type="button" className="su-btn su-btn-soft su-btn-sm" onClick={() => setEditing(hospital)}>
                   <Icon name="edit" size={14} /> Edit
                 </button>

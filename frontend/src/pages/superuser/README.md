@@ -1,132 +1,78 @@
-# AIoT Accident Detection and Alert System
-## Superuser Dashboard Frontend
+# Superuser frontend — staff and car-owner account management
 
-The superuser (admin) dashboard gives system administrators a complete view of the platform: every suspected accident from detection to hospital response, ESP32 device health, the hospital notification network, user roles and an activity history.
+This module belongs in frontend/src/pages/superuser/. Its glass background, fonts, colours and animations are unchanged. It remains a browser-local DEMO. FastAPI, Supabase email/password account creation and the separate car-owner vehicle interface are not connected/generated here.
 
-This module is a **React demonstration using fictional incidents, devices, hospitals and contacts**. FastAPI, Supabase authentication, the ESP32 and live notifications are not connected yet. Sample hospital names do not imply any actual partnership.
+## Confirmed roles
 
-Owner: Victor Gomwe (Superuser and Auth team) · Branch: `frontend-superuser`
+| Role | Hospital assignment | Owner/vehicle relationship | Interface |
+|---|---|---|---|
+| hospital_staff | Exactly one hospital; several staff can share it | Assigned emergency information only | Hospital dashboard |
+| superuser | None | System monitoring; no driving controls | Superuser dashboard |
+| car_owner | None | One registered owner identity with one or more cars | Separate vehicle interface |
 
-## Current features
+The superuser creates hospital staff AND car-owner login accounts. No public owner self-registration, extra job-based roles or owner-to-hospital relationship is assumed. An owner contact record can exist before a login; creating an owner login requires selecting that registered owner with at least one car. Multiple cars reuse the same registered owner identity, not separate logins.
 
-- **Overview** — Total incidents, Pending alerts, Online devices and Active hospitals cards; recent incidents; incident-flow breakdown; "needs attention" list; device, hospital and activity summaries.
-- **Incidents** — Incident ID | Device | Time | Location | Status | Action table with search, status groups and hospital filter.
-- **Incident details** (direct URL) — detection information and location, cancellation status with live countdown, hospitals notified with acknowledgment/acceptance times, full escalation history, manual routing to another hospital, notes and closure.
-- **Devices** — connection status, last-seen time, GPS status, last location and firmware.
-- **Hospitals** — list, register, edit and activate/deactivate (with validation and confirmation).
-- **Users and roles** — authorised role and hospital assignment, add/edit, suspend/reactivate. At least one active superuser must always remain.
-- **Activity history** — who performed each action and when, category filter, search and CSV export. Includes workspace preferences and Reset demo.
-- **Simulate detection** — creates a demo incident with a 30-second cancellation window; when it expires the nearest active hospital is notified automatically.
-- Pending-alert bell, cancellation-window banner, toasts, responsive sidebar, floating background, reduced-motion support and localStorage persistence.
+## Install
 
-## Folder structure
+1. Back up/commit the current module, then replace the complete frontend/src/pages/superuser/ folder with superuser/ from this ZIP.
+2. Keep main.jsx, index.css, shared Auth and the existing BrowserRouter.
+3. Mount /superuser/* to SuperuserDashboard in App.jsx as before. Do not add another router inside this module.
+4. Delete obsolete pages/VehicleControl.jsx if left over from the earlier copy. There is no superuser driving route/nav entry.
+5. Run npm.cmd run dev from frontend.
 
-```text
-frontend/src/pages/superuser/
-├── README.md
-├── SuperuserDashboard.jsx    Entry point used by App.jsx
-├── SuperuserDashboard.css    All module styles (scoped under .su-root)
-├── SuperuserApp.jsx          Nested routes + provider
-├── SuperuserLayout.jsx       Sidebar, top bar, bell, banner, toasts
-├── SuperuserContext.jsx      SuperuserProvider: state, actions, persistence
-├── useSuperuser.js           Context object + useSuperuser() hook
-├── data.js                   Fictional records, vocabularies, helpers
-├── api.js                    FastAPI endpoint placeholders (not used yet)
-├── components/
-│   ├── Icon.jsx              Inline SVG icon set
-│   ├── ui.jsx                Badges, panels, stat cards, modal, table, ring…
-│   ├── Background.jsx        Floating background effects
-│   ├── HospitalForm.jsx      Register / edit hospital dialog
-│   └── UserForm.jsx          Add user / edit role dialog
-└── pages/
-    ├── Overview.jsx
-    ├── Incidents.jsx
-    ├── IncidentDetail.jsx
-    ├── Devices.jsx
-    ├── Hospitals.jsx
-    ├── Users.jsx
-    ├── Activity.jsx
-    └── NotFound.jsx
-```
+No new dependency is required beyond your existing React/React DOM/react-router app. No database is modified by this ZIP. Use the corrected supabase.zip migrations separately.
 
-The hook lives in `useSuperuser.js` (separate from the provider) so React Fast Refresh and the `react-refresh/only-export-components` lint rule stay happy.
+## Demo account form
 
-## Page routes
+Users and roles offers Hospital staff, Superuser and Car owner. Staff require a known hospital. Administrators and owners have the hospital selector cleared/disabled. Car owners require a registered-owner selection; the selector shows owner name and associated car registrations. A second login for the same owner record is rejected. The user list includes a Car owners tab and Owner/cars column. Owner selection is not a field stored in the real profiles table: the real relationship is vehicle_owners.user_id; the demo flattens it to ownerId.
 
-| URL | Page |
-| --- | --- |
-| `/superuser` | Overview |
-| `/superuser/incidents` | Incidents |
-| `/superuser/incidents/INC-1050` | Example incident details |
-| `/superuser/devices` | Devices |
-| `/superuser/hospitals` | Hospitals |
-| `/superuser/users` | Users and roles |
-| `/superuser/activity` | Activity history |
+The supplied owner options are FICTIONAL fixtures based on the existing sample vehicles. In the real app, load registered owners and their cars from protected FastAPI endpoints. Real owner/car registration (name, phone, contact email, registration, make/model/colour, device) must create the existing vehicle_owners/vehicles/devices records first; this ZIP does not add those registration screens or assign a real vehicle to an arbitrary email.
 
-## Connection to App.jsx
+The form saves LOCAL DEMO PROFILES ONLY. It does not create a Supabase login, set a password or send an invitation. Safe-field persistence excludes passwords/tokens. Do not add credentials to data.js or localStorage. Existing demo records are retained and invalid assignments are flagged rather than guessed. Three staff at one hospital is supported, not required as a minimum/maximum.
+
+Hospital cards keep active staff counts and View staff links. Those counts include hospital_staff only, not car owners or administrators. Staff/admin account rules from the previous version are preserved.
+
+## Real email/password integration
+
+The shared Auth module uses Supabase signInWithPassword({email,password}). FastAPI verifies the JWT and loads the protected profile plus hospital/owner relationships. Route hospital_staff to /hospital, superuser to /superuser, car_owner to the separate /vehicle module. Creating owner accounts does not mean driving controls belong in the superuser dashboard.
+
+api.js includes a planned createUser(token,{name,email,role,hospitalId,ownerId,password}) helper for POST /api/admin/users. It is NOT called by the demo form. FastAPI must verify active superuser access, validate the owner/hospital relationship, follow the database account-provisioning workflow, create the Supabase Auth account, link the owner atomically and audit the action. Only collect/transmit an initial password in the real protected HTTPS flow; clear it afterward and never pass it to demo persistence. Service keys stay on the backend.
+
+GET /api/admin/users should return a joined/flattened ownerId and permitted car list for display. Map real UUIDs and snake_case fields to this demo's camelCase shape. Demo IDs like OWN-001 and HSP-001 are NOT database UUIDs. Role/owner-link changes must update profiles and vehicle_owners consistently in a backend transaction; the old generic updateUser helper does not implement that transaction or field mapping.
+
+To use the optional route guard, supply a backend-verified profile:
 
 ```jsx
-import SuperuserDashboard from "./pages/superuser/SuperuserDashboard";
-
-<Route path="/superuser/*" element={<SuperuserDashboard />} />
+<SuperuserDashboard
+  demoMode={false}
+  authLoading={authLoading}
+  currentUser={verifiedProfile ? {
+    role: verifiedProfile.role,
+    status: verifiedProfile.status,
+    hospitalId: verifiedProfile.hospital_id,
+  } : null}
+/>
 ```
 
-`/*` lets the nested pages resolve. The route sits **outside** the shared placeholder layout because the module has its own sidebar. If the team later wants the shared sidebar instead, use `<SuperuserDashboard embedded />`. Keep a single `BrowserRouter` in the app.
+Default demoMode=true preserves the standalone preview; it is NOT a protected deployment. The guard denies staff, owners and suspended/invalid admins, but only gates this demo UI. FastAPI must enforce authorization independently. The sidebar Open login (demo) link does not sign out a real session: wire the shared supabase.auth.signOut handler during integration.
 
-## Run
+## Monitoring and routes
 
-```powershell
-cd frontend
-npm.cmd install
-npm.cmd run dev
-```
+/superuser: overview; /incidents and /incidents/:incidentId: flow/details; /devices: status; /hospitals: registry; /users: account assignments; /activity: audit/preferences. These paths are relative to /superuser. /superuser/users?hospital=HSP-001 filters staff by hospital. There is no /superuser/vehicle page.
 
-Open `http://localhost:5173/superuser`.
+Simulate detection creates a 30-second false-alarm cancellation window with no hospital notification yet. The superuser sees the banner/countdown and incident details. If uncancelled it proceeds to simulated hospital routing. Owner/device cancellation belongs to the separate vehicle workflow. The hospital's three-minute acknowledgment deadline is different from the 30-second false-alarm window.
 
-## Demo storage and reset
+This local demonstration does not synchronize the hospital dashboard or another browser. Durable countdowns, cancellation authorization, scheduling and real notification fan-out belong to FastAPI. No physical driving or owner login page is provided by this module.
 
-Storage key: `aiot-superuser-demo-v1`. Data are local to this browser only. Use **Activity history → Reset demo** to restore the initial records.
+## Tests and verification
 
-## Theme
-
-Matches the hospital workspace: deep teal sidebar (`#0d2627`), mint accent (`#6fd6bd`), primary teal (`#14605a`), off-white canvas (`#f4f7f7`) and pastel status tones (red, amber, green, blue, purple, grey). Variables are declared at the top of `SuperuserDashboard.css`.
-
-## Backend integration remaining
-
-1. Protect `/superuser/*` with the auth team's `ProtectedRoute` (role = superuser).
-2. Replace fixtures with `api.js` calls, starting with `GET /api/admin/overview`, then incidents, devices, hospitals, users and audit.
-3. Add loading, empty, error and retry states; only show completed actions after server confirmation.
-4. FastAPI must verify superuser access and own routing, escalation, cancellation deadlines and the audit trail. Hiding controls in React is not access control.
-5. Never put Supabase secret/service-role keys in React.
-6. Replace device placeholders with real heartbeat and GPS data.
-
-## Validation
+From frontend:
 
 ```powershell
-npm.cmd run lint
+node --test src/pages/superuser/tests/userRules.test.mjs
 npm.cmd run build
 ```
 
-### Manual checklist
+Ten targeted tests passed, including owner identity/car requirements, hospital exclusion and owner rejection by the admin guard. The standalone Vite build passed. Browser checks verified selecting Car owner disables hospital assignment, missing owner linkage blocks saving, and a linked demo owner appears under Car owners with its registration. CSS/background assets were compared byte-for-byte with the previous version and remain unchanged.
 
-- [ ] Overview counts match the records.
-- [ ] Incident search and filters work; direct incident URLs survive refresh.
-- [ ] Simulate detection → countdown banner → nearest hospital notified at 0s.
-- [ ] Manual routing adds a notification and escalation entry.
-- [ ] Close incident and notes appear in history and Activity.
-- [ ] Hospital register/edit validation; deactivation removes it from routing.
-- [ ] Hospital staff require a hospital; last superuser cannot be demoted or suspended.
-- [ ] CSV export downloads.
-- [ ] Mobile menu works without horizontal page scrolling.
-
-## Git handover
-
-```powershell
-git add frontend/src/pages/superuser/ frontend/src/App.jsx
-git commit -m "Add superuser dashboard module"
-git pull --no-rebase origin frontend-superuser
-git push origin frontend-superuser
-```
-
-Open a pull request from `frontend-superuser` into `main` and ask a teammate to review.
-
+Not executed: live Supabase authentication/account creation, database RLS tests, FastAPI integration or the separate owner driving interface. The corresponding SQL package supplies development owner-isolation tests to run after migrations 07 and 08.
