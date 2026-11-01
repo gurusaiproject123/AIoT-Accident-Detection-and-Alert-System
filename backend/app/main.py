@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.routers.alerts import router as alerts_router
+
 app = FastAPI(
     title="AIoT Accident Detection API",
     version="0.1.0",
@@ -18,5 +20,8 @@ app.add_middleware(
 
 
 @app.get("/api/health", tags=["Health"])
-def health_check():
+async def health_check():
     return {"status": "ok"}
+
+
+app.include_router(alerts_router)
