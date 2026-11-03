@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import (
     APIRouter,
     Depends,
@@ -12,7 +14,7 @@ from supabase_auth.errors import AuthApiError
 from app.core.database import get_supabase_admin
 from app.core.permissions import require_superuser
 from app.schemas.auth import CurrentUser
-from app.schemas.user import StaffUserCreate
+from app.schemas.user import StaffUserCreate, UserStatusUpdate
 
 
 router = APIRouter(
@@ -28,7 +30,7 @@ def list_users(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ):
-    """List system profiles. Only superusers may access this endpoint."""
+    """List application profiles. Superusers only."""
 
     db = get_supabase_admin()
 
@@ -72,7 +74,7 @@ def create_staff_user(
     db = get_supabase_admin()
     email = str(payload.email).lower()
 
-    # Prepare the approved role and hospital for the Auth trigger.
+    # Prepare the role and hospital assignment.
     try:
         db.rpc(
             "admin_prepare_staff",
@@ -116,13 +118,14 @@ def create_staff_user(
             detail="Could not confirm account preparation.",
         ) from None
 
-    # Create the login. The database trigger creates its profile.
+    # Create the Auth login.
+    # The existing database trigger creates the assigned profile.
     try:
         created = db.auth.admin.create_user(
             {
                 "email": email,
                 "password": payload.password.get_secret_value(),
-                # Immediate confirmation for controlled development accounts.
+                # For controlled development accounts only.
                 "email_confirm": True,
                 "user_metadata": {
                     "full_name": payload.full_name,
@@ -163,7 +166,7 @@ def create_staff_user(
             detail="Account creation returned no user.",
         )
 
-    # Retrieve the application profile without exposing credentials.
+    # Retrieve the profile without exposing passwords or tokens.
     try:
         profiles = (
             db.table("profiles")
@@ -195,3 +198,86 @@ def create_staff_user(
     response.headers["Cache-Control"] = "no-store"
 
     return profiles[0]
+
+
+@router.patch("/{user_id}/status")
+def update_user_status(
+    user_id: UUID,
+    payload: UserStatusUpdate,
+    response: Response,
+    user: CurrentUser = Depends(require_superuser),
+):
+    """Suspend or reactivate an account using the audited function."""
+
+    db = get_supabase_admin()
+
+    try:
+        result = db.rpc(
+            "admin_set_user_status",
+            {
+                "p_actor_id": str(user.id),
+                "p_user_id": str(user_id),
+                "p_status": payload.status,
+            },
+        ).execute()
+
+    except APIError as exc:
+        if exc.code == "P0002":
+            raise HTTPException(
+                status_code=404,
+                detail="User not found.",
+            ) from None
+
+        if exc.code == "42501":
+            raise HTTPException(
+                status_code=403,
+                detail="Account status management is not permitted.",
+            ) from None
+
+        if exc.code == "23514":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "The status change conflicts with a database rule. "
+                    "At least one active superuser must remain."
+                ),
+            ) from None
+
+        if exc.code in {"22023", "22P02", "23502"}:
+            raise HTTPException(
+                status_code=422,
+                detail="A valid account status is required.",
+            ) from None
+
+        raise HTTPException(
+            status_code=503,
+            detail="Account status could not be updated.",
+        ) from None
+
+    except HTTPError:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Could not confirm the status change. "
+                "Check the user list before retrying."
+            ),
+        ) from None
+
+    if not result.data:
+        raise HTTPException(
+            status_code=503,
+            detail="No account status result was returned.",
+        )
+
+    profile = result.data[0]
+
+    response.headers["Cache-Control"] = "no-store"
+
+    return {
+        "id": profile["id"],
+        "full_name": profile["full_name"],
+        "email": profile["email"],
+        "role": profile["role"],
+        "status": profile["status"],
+        "hospital_id": profile["hospital_id"],
+    }

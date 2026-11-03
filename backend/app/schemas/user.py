@@ -12,6 +12,8 @@ from pydantic import (
 
 
 class StaffUserCreate(BaseModel):
+    """Validate a new hospital-staff account."""
+
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -26,7 +28,7 @@ class StaffUserCreate(BaseModel):
 
     @field_validator("full_name")
     @classmethod
-    def validate_name(cls, value):
+    def validate_name(cls, value: str) -> str:
         value = value.strip()
 
         if len(value) < 2:
@@ -36,10 +38,22 @@ class StaffUserCreate(BaseModel):
 
     @field_validator("password")
     @classmethod
-    def validate_password(cls, value):
-        if not 12 <= len(value.get_secret_value()) <= 128:
+    def validate_password(cls, value: SecretStr) -> SecretStr:
+        password_length = len(value.get_secret_value())
+
+        if not 12 <= password_length <= 128:
             raise ValueError(
                 "Password must contain between 12 and 128 characters."
             )
 
         return value
+
+
+class UserStatusUpdate(BaseModel):
+    """Validate account suspension or reactivation."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+
+    status: Literal["active", "suspended"]
