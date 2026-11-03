@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers.auth import router as auth_router
 from app.routers.admin_hospitals import router as admin_hospitals_router
+from app.routers.admin_users import router as admin_users_router
 
 
 app = FastAPI(
@@ -22,6 +23,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(admin_hospitals_router)
+app.include_router(admin_users_router)
 
 
 @app.get("/api/health", tags=["Health"])
