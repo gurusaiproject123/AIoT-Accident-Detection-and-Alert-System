@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routers.auth import router as auth_router
 from app.routers.admin_hospitals import router as admin_hospitals_router
 from app.routers.admin_users import router as admin_users_router
+from app.routers.admin_audit import router as admin_audit_router
+from app.routers.admin_overview import router as admin_overview_router
 
 
 app = FastAPI(
@@ -11,6 +13,7 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# Allow requests from the local React frontend.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -21,9 +24,12 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
+# Authentication and administration routes.
 app.include_router(auth_router)
 app.include_router(admin_hospitals_router)
 app.include_router(admin_users_router)
+app.include_router(admin_audit_router)
+app.include_router(admin_overview_router)
 
 
 @app.get("/api/health", tags=["Health"])

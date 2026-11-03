@@ -14,7 +14,11 @@ from supabase_auth.errors import AuthApiError
 from app.core.database import get_supabase_admin
 from app.core.permissions import require_superuser
 from app.schemas.auth import CurrentUser
-from app.schemas.user import StaffUserCreate, UserStatusUpdate
+from app.schemas.user import (
+    UserAccessUpdate,
+    UserCreate,
+    UserStatusUpdate,
+)
 
 
 router = APIRouter(
@@ -64,52 +68,81 @@ def list_users(
 
 
 @router.post("", status_code=201)
-def create_staff_user(
-    payload: StaffUserCreate,
+def create_user(
+    payload: UserCreate,
     response: Response,
     user: CurrentUser = Depends(require_superuser),
 ):
-    """Create a hospital-staff login with one hospital assignment."""
+    """Create a hospital-staff or registered car-owner login."""
 
     db = get_supabase_admin()
     email = str(payload.email).lower()
 
-    # Prepare the role and hospital assignment.
+    if payload.role == "hospital_staff":
+        preparation_function = "admin_prepare_staff"
+
+        preparation_data = {
+            "p_actor_id": str(user.id),
+            "p_email": email,
+            "p_hospital_id": str(payload.hospital_id),
+        }
+
+    else:
+        preparation_function = "admin_prepare_owner"
+
+        preparation_data = {
+            "p_actor_id": str(user.id),
+            "p_email": email,
+            "p_owner_id": str(payload.owner_id),
+        }
+
+    # Prepare the approved role and assignment.
     try:
         db.rpc(
-            "admin_prepare_staff",
-            {
-                "p_actor_id": str(user.id),
-                "p_email": email,
-                "p_hospital_id": str(payload.hospital_id),
-            },
+            preparation_function,
+            preparation_data,
         ).execute()
 
     except APIError as exc:
         if exc.code == "P0002":
             raise HTTPException(
                 status_code=404,
-                detail="Hospital not found.",
+                detail="The selected hospital or owner was not found.",
             ) from None
 
         if exc.code == "23505":
             raise HTTPException(
                 status_code=409,
                 detail=(
-                    "The account already exists or account creation "
-                    "is already pending for this email."
+                    "The account or owner login already exists, "
+                    "or account creation is already pending."
                 ),
             ) from None
 
         if exc.code == "42501":
             raise HTTPException(
                 status_code=403,
-                detail="Staff account creation is not permitted.",
+                detail="Account creation is not permitted.",
+            ) from None
+
+        if exc.code in {
+            "22023",
+            "23514",
+            "23503",
+            "23502",
+            "22P02",
+        }:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Invalid account assignment. "
+                    "A car owner must have a registered car."
+                ),
             ) from None
 
         raise HTTPException(
             status_code=503,
-            detail="Unable to prepare the staff account.",
+            detail="Unable to prepare the account.",
         ) from None
 
     except HTTPError:
@@ -118,14 +151,14 @@ def create_staff_user(
             detail="Could not confirm account preparation.",
         ) from None
 
-    # Create the Auth login.
-    # The existing database trigger creates the assigned profile.
+    # Supabase Auth creates the login.
+    # The existing database trigger creates the profile and owner link.
     try:
         created = db.auth.admin.create_user(
             {
                 "email": email,
                 "password": payload.password.get_secret_value(),
-                # For controlled development accounts only.
+                # Immediate confirmation for controlled development accounts.
                 "email_confirm": True,
                 "user_metadata": {
                     "full_name": payload.full_name,
@@ -156,7 +189,7 @@ def create_staff_user(
             status_code=503,
             detail=(
                 "Could not confirm account creation. "
-                "Check the user list before retrying."
+                "Check existing accounts before retrying."
             ),
         ) from None
 
@@ -166,7 +199,7 @@ def create_staff_user(
             detail="Account creation returned no user.",
         )
 
-    # Retrieve the profile without exposing passwords or tokens.
+    # Retrieve the saved profile and actual owner assignment.
     try:
         profiles = (
             db.table("profiles")
@@ -177,12 +210,21 @@ def create_staff_user(
             .data
         )
 
+        owners = (
+            db.table("vehicle_owners")
+            .select("id")
+            .eq("user_id", str(created.user.id))
+            .limit(1)
+            .execute()
+            .data
+        )
+
     except (APIError, HTTPError):
         raise HTTPException(
             status_code=503,
             detail=(
-                "The account was created, but its profile could not "
-                "be retrieved. Check the user list."
+                "The account was created, but its assignment could "
+                "not be retrieved. Check existing accounts."
             ),
         ) from None
 
@@ -190,14 +232,44 @@ def create_staff_user(
         raise HTTPException(
             status_code=503,
             detail=(
-                "The Auth account exists, but no system profile "
-                "was found. Administrator review is required."
+                "Account profile is missing. "
+                "Administrator review is required."
+            ),
+        )
+
+    profile = profiles[0]
+    linked_owner_id = owners[0]["id"] if owners else None
+
+    # Verify the assignments created by the database trigger.
+    if payload.role == "hospital_staff":
+        assignment_valid = (
+            profile["role"] == "hospital_staff"
+            and profile["hospital_id"] == str(payload.hospital_id)
+            and linked_owner_id is None
+        )
+
+    else:
+        assignment_valid = (
+            profile["role"] == "car_owner"
+            and profile["hospital_id"] is None
+            and linked_owner_id == str(payload.owner_id)
+        )
+
+    if not assignment_valid:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Account assignment verification failed. "
+                "Administrator review is required."
             ),
         )
 
     response.headers["Cache-Control"] = "no-store"
 
-    return profiles[0]
+    return {
+        **profile,
+        "owner_id": linked_owner_id,
+    }
 
 
 @router.patch("/{user_id}/status")
@@ -207,7 +279,7 @@ def update_user_status(
     response: Response,
     user: CurrentUser = Depends(require_superuser),
 ):
-    """Suspend or reactivate an account using the audited function."""
+    """Suspend or reactivate an account."""
 
     db = get_supabase_admin()
 
@@ -267,6 +339,98 @@ def update_user_status(
         raise HTTPException(
             status_code=503,
             detail="No account status result was returned.",
+        )
+
+    profile = result.data[0]
+
+    response.headers["Cache-Control"] = "no-store"
+
+    return {
+        "id": profile["id"],
+        "full_name": profile["full_name"],
+        "email": profile["email"],
+        "role": profile["role"],
+        "status": profile["status"],
+        "hospital_id": profile["hospital_id"],
+    }
+
+
+@router.patch("/{user_id}")
+def update_user_access(
+    user_id: UUID,
+    payload: UserAccessUpdate,
+    response: Response,
+    user: CurrentUser = Depends(require_superuser),
+):
+    """Update status or hospital assignment without changing role."""
+
+    db = get_supabase_admin()
+
+    changes = payload.model_dump(
+        mode="json",
+        exclude_unset=True,
+    )
+
+    try:
+        result = db.rpc(
+            "admin_update_user_access",
+            {
+                "p_actor_id": str(user.id),
+                "p_user_id": str(user_id),
+                "p_data": changes,
+            },
+        ).execute()
+
+    except APIError as exc:
+        if exc.code == "P0002":
+            raise HTTPException(
+                status_code=404,
+                detail="User not found.",
+            ) from None
+
+        if exc.code == "42501":
+            raise HTTPException(
+                status_code=403,
+                detail="Account access management is not permitted.",
+            ) from None
+
+        if exc.code == "23514":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "The change conflicts with a database rule. "
+                    "At least one active superuser must remain."
+                ),
+            ) from None
+
+        if exc.code in {"22023", "22P02", "23502", "23503"}:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Invalid status or hospital assignment. "
+                    "Staff require an existing hospital; "
+                    "superusers and car owners cannot have one."
+                ),
+            ) from None
+
+        raise HTTPException(
+            status_code=503,
+            detail="Account access could not be updated.",
+        ) from None
+
+    except HTTPError:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Could not confirm the update. "
+                "Check the user list before retrying."
+            ),
+        ) from None
+
+    if not result.data:
+        raise HTTPException(
+            status_code=503,
+            detail="No account update result was returned.",
         )
 
     profile = result.data[0]
