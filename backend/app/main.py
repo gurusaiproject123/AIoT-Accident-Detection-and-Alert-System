@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers.auth import router as auth_router
+from app.routers.admin_hospitals import router as admin_hospitals_router
 
 
 app = FastAPI(
@@ -19,8 +20,8 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
-# Register authentication endpoints.
 app.include_router(auth_router)
+app.include_router(admin_hospitals_router)
 
 
 @app.get("/api/health", tags=["Health"])
