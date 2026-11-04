@@ -1,0 +1,505 @@
+{
+  "info": {
+    "name": "AIoT Backend - Incidents Module (Section 6)",
+    "_postman_id": "8e44c190-6f2a-4c3b-991a-000600000006",
+    "description": "Credential-free Postman collection for Section 6 (backend-incidents): Incident lifecycle, 30s false-alarm cancellation window, timeline history, notes, false-alarm review reports, and closure.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000"
+    },
+    {
+      "key": "supabase_url",
+      "value": "https://your-project-ref.supabase.co"
+    },
+    {
+      "key": "supabase_publishable_key",
+      "value": "your-supabase-anon-or-publishable-key"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "device_secret",
+      "value": ""
+    },
+    {
+      "key": "device_id",
+      "value": "00000000-0000-4000-8000-000000000001"
+    },
+    {
+      "key": "incident_id",
+      "value": "00000000-0000-4000-8000-000000000002"
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Auth Session Setup (Supabase Sign-In)",
+      "item": [
+        {
+          "name": "Obtain Supabase Access Token",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{supabase_publishable_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"your-test-account-email\",\n  \"password\": \"your-test-password\"\n}"
+            },
+            "url": {
+              "raw": "{{supabase_url}}/auth/v1/token?grant_type=password",
+              "host": [
+                "{{supabase_url}}"
+              ],
+              "path": [
+                "auth",
+                "v1",
+                "token"
+              ],
+              "query": [
+                {
+                  "key": "grant_type",
+                  "value": "password"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Permitted Incident Queries & Timeline",
+      "item": [
+        {
+          "name": "GET /api/incidents (Permitted List)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/incidents?limit=20&offset=0",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "incidents"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "cancellation_window",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/incidents/{id} (Permitted Detail)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/incidents/{{incident_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "incidents",
+                "{{incident_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/incidents/{id}/timeline (Permitted Event History)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/incidents/{{incident_id}}/timeline",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "incidents",
+                "{{incident_id}}",
+                "timeline"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. 30-Second Cancellation Window (Owner & Device)",
+      "item": [
+        {
+          "name": "POST /api/incidents/{id}/cancel (Owner Cancellation)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"False alarm triggered by rough road surface\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/incidents/{{incident_id}}/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "incidents",
+                "{{incident_id}}",
+                "cancel"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/devices/{device_id}/incidents/{incident_id}/cancel (Device Cancellation)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Device-Secret",
+                "value": "{{device_secret}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Hardware cancel button pressed within 30s window\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/devices/{{device_id}}/incidents/{{incident_id}}/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "devices",
+                "{{device_id}}",
+                "incidents",
+                "{{incident_id}}",
+                "cancel"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Responder Notes, False-Alarm Reports & Closure",
+      "item": [
+        {
+          "name": "POST /api/incidents/{id}/notes (Staff or Admin Note)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Contacted vehicle owner contact; dispatching emergency triage unit.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/incidents/{{incident_id}}/notes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "incidents",
+                "{{incident_id}}",
+                "notes"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/incidents/{id}/false-alarm-reports (Assigned Hospital Review Report)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"On-scene responder confirmed sensor unit detached without collision.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/incidents/{{incident_id}}/false-alarm-reports",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "incidents",
+                "{{incident_id}}",
+                "false-alarm-reports"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/incidents/{id}/close (Responder Closure)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"closing_note\": \"Patient assessed and treated at hospital.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/incidents/{{incident_id}}/close",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "incidents",
+                "{{incident_id}}",
+                "close"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Superuser Incident Administration",
+      "item": [
+        {
+          "name": "GET /api/admin/incidents (All Incidents)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/incidents?limit=20&offset=0",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "incidents"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "notified",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/admin/incidents/{id} (Admin Incident Details)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/incidents/{{incident_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "incidents",
+                "{{incident_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/admin/incidents/{id}/close (Superuser Closure with Outcome)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"outcome\": \"confirmed_false_alarm\",\n  \"closing_note\": \"Reviewed hospital false-alarm report and closed incident.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/incidents/{{incident_id}}/close",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "incidents",
+                "{{incident_id}}",
+                "close"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+
