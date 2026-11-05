@@ -80,4 +80,3 @@ def require_device(
         id=UUID(device["id"]),
         credential_hash=candidate_hash,
     )
-
