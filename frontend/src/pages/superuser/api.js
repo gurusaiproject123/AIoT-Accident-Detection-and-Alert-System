@@ -1,18 +1,4 @@
-/*
- * Superuser API placeholders.
- *
- * NOT USED YET — the dashboard currently runs on demo data from data.js.
- * When the FastAPI endpoints are ready, call these functions from
- * SuperuserContext.jsx, show loading / empty / error states, and only
- * update the UI after the server confirms success.
- *
- * Rules agreed for the project:
- *  - FastAPI must verify superuser access on every endpoint.
- *  - Never put a Supabase secret or service-role key in React.
- *  - The access token comes from the shared AuthContext (frontend-auth).
- */
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
 
 export const ADMIN_ENDPOINTS = {
   overview: "/api/admin/overview",
@@ -35,7 +21,7 @@ export const ADMIN_ENDPOINTS = {
  * @param {RequestInit} init Optional fetch options.
  */
 export async function adminRequest(path, token, init = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${API_BASE.replace(/\/$/, "")}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
@@ -44,8 +30,11 @@ export async function adminRequest(path, token, init = {}) {
     },
   });
   if (!response.ok) {
-    const message = await response.text().catch(() => "");
-    throw new Error(message || `Request failed with status ${response.status}`);
+    const payload = await response.json().catch(() => null);
+    const detail = payload?.detail;
+    throw new Error(typeof detail === "string" ? detail : Array.isArray(detail)
+      ? detail.map(({loc, msg}) => `${loc?.at(-1) ?? "Field"}: ${msg}`).join("; ")
+      : `Request failed (HTTP ${response.status}).`);
   }
   return response.status === 204 ? null : response.json();
 }
@@ -76,10 +65,10 @@ export const closeIncident = (token, id, note) =>
   });
 
 
-/** Planned FastAPI endpoint, not called by the local demo. Never persist passwords. */
+/** Provision a Supabase account through FastAPI. Never persist passwords. */
 export function createUser(token, { name, email, role, hospitalId, ownerId, password }) {
   if (!token) throw new Error("A verified administrator session is required.");
-  if (!["hospital_staff","superuser","car_owner"].includes(role)) throw new Error("Unsupported user role.");
+  if (!["hospital_staff","car_owner"].includes(role)) throw new Error("Unsupported user role.");
   if (role === "hospital_staff" && !hospitalId) throw new Error("Select one hospital.");
   if (role !== "hospital_staff" && hospitalId) throw new Error("This account type has no hospital assignment.");
   if (role === "car_owner" && !ownerId) throw new Error("Select the registered owner.");
@@ -87,4 +76,15 @@ export function createUser(token, { name, email, role, hospitalId, ownerId, pass
   return adminRequest(ADMIN_ENDPOINTS.users, token, {
     method:"POST", body:JSON.stringify({full_name:name,email,role,hospital_id:hospitalId ?? null,owner_id:role === "car_owner" ? ownerId : null,password}),
   });
+}
+
+export async function getAll(path, token, signal) {
+  const items = [];
+  for (let offset = 0; ; ) {
+    const page = await adminRequest(`${path}?limit=100&offset=${offset}`, token, {signal});
+    if (!Array.isArray(page?.items)) throw new Error("The server returned an invalid list.");
+    items.push(...page.items);
+    offset += page.items.length;
+    if (!page.items.length || offset >= page.total) return items;
+  }
 }

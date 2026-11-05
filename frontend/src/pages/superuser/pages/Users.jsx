@@ -37,7 +37,7 @@ export default function Users() {
         subtitle="Staff belong to one hospital. Car owners log in to their separate vehicle interface. Superusers oversee the platform without a hospital assignment."
         actions={
           <button type="button" className="su-btn su-btn-primary" onClick={() => setEditing("new")}>
-            <Icon name="plus" size={15} /> Add demo user
+            <Icon name="plus" size={15} /> Create account
           </button>
         }
       />
@@ -126,7 +126,7 @@ export default function Users() {
                         <button
                           type="button"
                           className="su-btn su-btn-soft su-btn-sm"
-                          onClick={() => setEditing(user)}
+                          disabled={user.role !== "hospital_staff"} onClick={() => setEditing(user)}
                         >
                           <Icon name="edit" size={14} /> Edit
                         </button>
@@ -146,7 +146,7 @@ export default function Users() {
           </div>
         )}
         <p className="su-table-foot">
-          Email/password sign-in is managed by Supabase Auth. These are local demo profiles, not live login accounts. FastAPI must enforce permissions.
+          Email/password sign-in is managed by Supabase Auth. Account changes are saved by FastAPI.
         </p>
       </Panel>
 

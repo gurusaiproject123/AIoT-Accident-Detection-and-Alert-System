@@ -12,7 +12,7 @@ const GROUPS = {
 };
 
 export default function Incidents() {
-  const { incidents, hospitals, hospitalById, deviceById, simulateIncident } = useSuperuser();
+  const { incidents, hospitals, hospitalById, deviceById, refresh } = useSuperuser();
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState("all");
   const [hospitalId, setHospitalId] = useState("all");
@@ -51,8 +51,8 @@ export default function Incidents() {
         title="Incidents"
         subtitle="Every suspected accident recorded by the system, from detection to outcome."
         actions={
-          <button type="button" className="su-btn su-btn-primary" onClick={simulateIncident}>
-            <Icon name="play" size={15} /> Simulate detection
+          <button type="button" className="su-btn su-btn-primary" onClick={refresh}>
+            <Icon name="refresh" size={15} /> Refresh incidents
           </button>
         }
       />

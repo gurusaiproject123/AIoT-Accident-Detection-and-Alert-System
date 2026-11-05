@@ -1,588 +1,149 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useAuth } from "../auth/useAuth";
 import { SuperuserContext } from "./useSuperuser";
-import { DEMO_ACTOR, STORAGE_KEY, buildSeed, nextId } from "./data";
-import { validateUserAssignment, publicUserRecord } from "./userRules";
+import * as api from "./api";
 
-/*
- * SuperuserProvider
- * -----------------
- * Owns all demo state for the superuser module: incidents, devices,
- * hospitals, users, the audit trail and workspace preferences.
- *
- * Everything is stored in browser localStorage for the demonstration.
- * During backend integration each action below should become a FastAPI
- * request, and the UI should only show a completed action after the
- * server confirms it. FastAPI must verify superuser access itself —
- * hiding controls in React is not access control.
- */
-
-function loadInitialState() {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && Array.isArray(parsed.incidents) && Array.isArray(parsed.hospitals)) {
-        const state = { ...buildSeed(), ...parsed };
-        return { ...state, users: (Array.isArray(state.users) ? state.users : buildSeed().users).map(publicUserRecord) };
-      }
-    }
-  } catch {
-    // Corrupt or unavailable storage: fall back to fresh demo data.
-  }
-  return buildSeed();
-}
-
-/** Rough straight-line distance used to pick the "nearest" demo hospital. */
-function distanceKm(a, b) {
-  const toRad = (deg) => (deg * Math.PI) / 180;
-  const dLat = toRad(b.lat - a.lat);
-  const dLng = toRad(b.lng - a.lng);
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return 6371 * 2 * Math.asin(Math.sqrt(h));
-}
-
-function nearestActiveHospital(hospitals, location, excludeIds = []) {
-  const candidates = hospitals.filter((h) => h.active && !excludeIds.includes(h.id));
-  if (!candidates.length) return null;
-  if (location?.lat == null) return candidates[0];
-  return [...candidates].sort(
-    (a, b) => distanceKm(location, a) - distanceKm(location, b),
-  )[0];
-}
-
-function makeAudit(audit, at, entry) {
-  return [{ id: nextId("AUD", audit, 4), at, ...entry }, ...audit];
-}
-
-/** Moves incidents whose local cancellation window has passed into the hospital flow. */
-function expireCancellationWindows(state, now) {
-  let changed = false;
-  let audit = state.audit;
-
-  const incidents = state.incidents.map((incident) => {
-    if (incident.status !== "cancellation_window") return incident;
-    const deadline =
-      new Date(incident.detectedAt).getTime() + incident.cancellation.windowSeconds * 1000;
-    if (now < deadline) return incident;
-
-    changed = true;
-    const at = new Date(deadline).toISOString();
-    const hospital = nearestActiveHospital(state.hospitals, incident.location);
-    const timeline = [
-      ...incident.timeline,
-      { at, type: "window", text: "Cancellation window expired without cancellation.", actor: "System" },
-    ];
-
-    if (!hospital) {
-      timeline.push({
-        at,
-        type: "timeout",
-        text: "No active hospital available for notification. Superuser action required.",
-        actor: "System",
-      });
-      audit = makeAudit(audit, at, {
-        actor: "System",
-        role: "system",
-        category: "incident",
-        action: "Routing failed",
-        target: incident.id,
-        detail: "No active hospital available.",
-      });
-      return {
-        ...incident,
-        status: "escalated",
-        cancellation: { ...incident.cancellation, outcome: "expired", at },
-        timeline,
-      };
-    }
-
-    timeline.push({
-      at,
-      type: "notified",
-      text: `${hospital.name} notified (nearest active hospital).`,
-      actor: "System",
-    });
-    audit = makeAudit(audit, at, {
-      actor: "System",
-      role: "system",
-      category: "incident",
-      action: "Notified hospital",
-      target: incident.id,
-      detail: `${hospital.name} notified automatically.`,
-    });
-
-    return {
-      ...incident,
-      status: "notified",
-      cancellation: { ...incident.cancellation, outcome: "expired", at },
-      notifications: [
-        {
-          hospitalId: hospital.id,
-          status: "notified",
-          notifiedAt: at,
-          acknowledgedAt: null,
-          respondedAt: null,
-          reason: null,
-        },
-      ],
-      timeline,
-    };
-  });
-
-  return changed ? { ...state, incidents, audit } : state;
-}
+const empty = {incidents: [], devices: [], hospitals: [], users: [], owners: [], audit: []};
+const incidentView = (r, timeline = []) => ({
+  id:r.id, code:r.code, deviceId:r.device_id, detectedAt:r.detected_at,
+  status:r.status, modelScore:r.model_score, impact:r.impact_summary,
+  location:{label:r.location_label ?? r.location_status_label, lat:r.latitude, lng:r.longitude},
+  cancellation:{windowSeconds:r.cancellation_window_seconds, deadline:r.cancellation_deadline,
+    outcome:r.cancellation_outcome, by:r.cancelled_by_label, at:r.cancellation_resolved_at},
+  notifications:(r.notifications ?? []).map(n=>({hospitalId:n.hospital_id, hospitalName:n.hospital_name,
+    status:n.status, notifiedAt:n.notified_at, acknowledgedAt:n.acknowledged_at,
+    respondedAt:n.responded_at, reason:n.decline_reason})),
+  notes:(r.notes ?? []).map(n=>({at:n.created_at, text:n.body, actor:n.author_label})),
+  timeline:timeline.map(e=>({at:e.created_at, type:e.event_type, text:e.message, actor:e.actor_label})),
+});
 
 export default function SuperuserProvider({ children }) {
-  const [data, setData] = useState(loadInitialState);
-  const [now, setNow] = useState(() => Date.now());
+  const {session, profile, signOut} = useAuth();
+  const token = session?.access_token;
+  const [data, setData] = useState(empty);
+  const [overview, setOverview] = useState({});
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(Date.now);
+  const [preferences, setPreferences] = useState({animations:true});
   const [toasts, setToasts] = useState([]);
-  const toastTimers = useRef(new Map());
+  const sequence = useRef(0);
+  const writing = useRef(false);
+  const [revision, setRevision] = useState(0);
+  const dismissToast = (id) => setToasts(list=>list.filter(t=>t.id!==id));
+  const notify = (message,tone="green") => setToasts(list=>[...list.slice(-3),{id:crypto.randomUUID(),message,tone}]);
 
-  const hasOpenWindow = data.incidents.some((i) => i.status === "cancellation_window");
-
-  // Clock: tick every second while a cancellation countdown is visible,
-  // otherwise every 30 seconds for "last seen" style labels.
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      const current = Date.now();
-      setNow(current);
-      setData((state) => expireCancellationWindows(state, current));
-    }, hasOpenWindow ? 1000 : 30000);
-    return () => window.clearInterval(id);
-  }, [hasOpenWindow]);
-
-  // Persist demo records.
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch {
-      // Storage full or blocked; the demo keeps working in memory.
-    }
-  }, [data]);
-
-  // Clear any pending toast timers on unmount.
-  useEffect(() => {
-    const timers = toastTimers.current;
-    return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, []);
-
-  /* ---------------------------- Toasts ---------------------------- */
-
-  const dismissToast = useCallback((id) => {
-    setToasts((list) => list.filter((t) => t.id !== id));
-    const timer = toastTimers.current.get(id);
-    if (timer) {
-      window.clearTimeout(timer);
-      toastTimers.current.delete(id);
-    }
-  }, []);
-
-  const notify = useCallback(
-    (message, tone = "green") => {
-      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-      setToasts((list) => [...list.slice(-3), { id, message, tone }]);
-      toastTimers.current.set(
-        id,
-        window.setTimeout(() => dismissToast(id), 4200),
-      );
-    },
-    [dismissToast],
-  );
-
-  /* --------------------------- Helpers ---------------------------- */
-
-  /** Applies a change and records who performed it and when. */
-  const commit = useCallback((updater, auditEntry) => {
-    const at = new Date().toISOString();
-    setData((state) => {
-      const next = updater(state, at);
-      if (!auditEntry) return next;
-      const entry =
-        typeof auditEntry === "function" ? auditEntry(state, next) : auditEntry;
-      return {
-        ...next,
-        audit: makeAudit(next.audit, at, {
-          actor: DEMO_ACTOR,
-          role: "superuser",
-          ...entry,
-        }),
-      };
-    });
-    setNow(Date.now());
-  }, []);
-
-  const updateIncident = (state, id, change) => ({
-    ...state,
-    incidents: state.incidents.map((incident) =>
-      incident.id === id ? change(incident) : incident,
-    ),
-  });
-
-  /* --------------------------- Incidents -------------------------- */
-
-  const notifyHospital = useCallback(
-    (incidentId, hospitalId) => {
-      const hospital = data.hospitals.find((h) => h.id === hospitalId);
-      if (!hospital) return;
-      commit(
-        (state, at) =>
-          updateIncident(state, incidentId, (incident) => {
-            const level = incident.notifications.length + 1;
-            return {
-              ...incident,
-              status: incident.notifications.length ? "escalated" : "notified",
-              notifications: [
-                ...incident.notifications,
-                {
-                  hospitalId,
-                  status: "notified",
-                  notifiedAt: at,
-                  acknowledgedAt: null,
-                  respondedAt: null,
-                  reason: null,
-                },
-              ],
-              timeline: [
-                ...incident.timeline,
-                {
-                  at,
-                  type: level > 1 ? "escalated" : "notified",
-                  text:
-                    level > 1
-                      ? `Manually escalated to ${hospital.name} (level ${level}).`
-                      : `${hospital.name} notified manually.`,
-                  actor: DEMO_ACTOR,
-                },
-              ],
-            };
-          }),
-        {
-          category: "incident",
-          action: "Routed incident",
-          target: incidentId,
-          detail: `Notification sent to ${hospital.name}.`,
-        },
-      );
-      notify(`${hospital.name} notified for ${incidentId}.`);
-    },
-    [commit, data.hospitals, notify],
-  );
-
-  const closeIncident = useCallback(
-    (incidentId, note) => {
-      commit(
-        (state, at) =>
-          updateIncident(state, incidentId, (incident) => ({
-            ...incident,
-            status: "closed",
-            timeline: [
-              ...incident.timeline,
-              {
-                at,
-                type: "closed",
-                text: note ? `Closed by superuser: ${note}` : "Closed by superuser.",
-                actor: DEMO_ACTOR,
-              },
-            ],
-          })),
-        {
-          category: "incident",
-          action: "Closed incident",
-          target: incidentId,
-          detail: note || "Closed from the superuser dashboard.",
-        },
-      );
-      notify(`${incidentId} closed.`, "purple");
-    },
-    [commit, notify],
-  );
-
-  const addIncidentNote = useCallback(
-    (incidentId, text) => {
-      commit(
-        (state, at) =>
-          updateIncident(state, incidentId, (incident) => ({
-            ...incident,
-            notes: [...incident.notes, { at, text, actor: DEMO_ACTOR }],
-            timeline: [
-              ...incident.timeline,
-              { at, type: "note", text: `Note added: ${text}`, actor: DEMO_ACTOR },
-            ],
-          })),
-        {
-          category: "incident",
-          action: "Added note",
-          target: incidentId,
-          detail: text,
-        },
-      );
-      notify("Note added to the incident record.");
-    },
-    [commit, notify],
-  );
-
-  /** Creates a simulated detection so the full incident flow can be demonstrated. */
-  const simulateIncident = useCallback(() => {
-    const candidates = data.devices.filter((d) => d.status === "online" && d.lat != null);
-    const device = candidates[Math.floor(Math.random() * candidates.length)] ?? data.devices[0];
-    const id = nextId("INC", data.incidents, 4);
-    commit(
-      (state, at) => ({
-        ...state,
-        incidents: [
-          {
-            id,
-            deviceId: device.id,
-            detectedAt: at,
-            location: {
-              label: `Near ${device.vehicle} last known position`,
-              lat: device.lat,
-              lng: device.lng,
-            },
-            modelScore: Math.round((0.7 + Math.random() * 0.25) * 100) / 100,
-            impact: "Simulated impact signature",
-            status: "cancellation_window",
-            cancellation: { windowSeconds: 30, outcome: "pending", by: null, at: null },
-            notifications: [],
-            timeline: [
-              { at, type: "detected", text: `Simulated detection from ${device.id}.`, actor: "System" },
-              { at, type: "window", text: "30 second local cancellation window started.", actor: "System" },
-            ],
-            notes: [],
-          },
-          ...state.incidents,
-        ],
-      }),
-      {
-        category: "incident",
-        action: "Simulated detection",
-        target: id,
-        detail: `Demo incident created for ${device.id}.`,
-      },
-    );
-    notify(`Simulated incident ${id} created. Cancellation window running.`, "amber");
-    return id;
-  }, [commit, data.devices, data.incidents, notify]);
-
-  /* --------------------------- Hospitals -------------------------- */
-
-  const saveHospital = useCallback(
-    (hospital) => {
-      const isNew = !hospital.id;
-      const id = isNew ? nextId("HSP", data.hospitals) : hospital.id;
-      commit(
-        (state, at) => ({
-          ...state,
-          hospitals: isNew
-            ? [...state.hospitals, { ...hospital, id, registeredAt: at }]
-            : state.hospitals.map((h) => (h.id === id ? { ...h, ...hospital } : h)),
-        }),
-        {
-          category: "hospital",
-          action: isNew ? "Registered hospital" : "Updated hospital",
-          target: `${id} ${hospital.name}`,
-          detail: isNew
-            ? `Registered as ${hospital.active ? "active" : "inactive"}.`
-            : "Hospital details edited.",
-        },
-      );
-      notify(isNew ? `${hospital.name} registered.` : `${hospital.name} updated.`);
-      return id;
-    },
-    [commit, data.hospitals, notify],
-  );
-
-  const toggleHospital = useCallback(
-    (id) => {
-      const hospital = data.hospitals.find((h) => h.id === id);
-      if (!hospital) return;
-      const active = !hospital.active;
-      commit(
-        (state) => ({
-          ...state,
-          hospitals: state.hospitals.map((h) => (h.id === id ? { ...h, active } : h)),
-        }),
-        {
-          category: "hospital",
-          action: active ? "Activated hospital" : "Deactivated hospital",
-          target: `${id} ${hospital.name}`,
-          detail: active
-            ? "Hospital can now receive incident notifications."
-            : "Hospital will no longer receive new incident notifications.",
-        },
-      );
-      notify(`${hospital.name} ${active ? "activated" : "deactivated"}.`, active ? "green" : "grey");
-    },
-    [commit, data.hospitals, notify],
-  );
-
-  /* ----------------------------- Users ---------------------------- */
-
-  const activeSuperusers = data.users.filter(
-    (u) => u.role === "superuser" && u.status === "active",
-  );
-
-  const saveUser = useCallback(
-    (user) => {
-      const errors = validateUserAssignment(user, data.hospitals, data.owners ?? []);
-      if (Object.keys(errors).length) return { ok: false, error: Object.values(errors)[0] };
-      if (user.role === "car_owner" && data.users.some(u => u.role === "car_owner" && u.ownerId === user.ownerId && u.id !== user.id)) {
-        return { ok: false, error: "This registered owner already has a login account." };
-      }
-      const isNew = !user.id;
-      const existing = data.users.find((u) => u.id === user.id);
-      if (!isNew && !existing) return { ok: false, error: "User not found." };
-      const losesSuperuser =
-        existing?.role === "superuser" &&
-        existing.status === "active" &&
-        user.role !== "superuser";
-      if (losesSuperuser && activeSuperusers.length <= 1) {
-        return { ok: false, error: "At least one active superuser must remain." };
-      }
-      const emailTaken = data.users.some(
-        (u) => u.email.toLowerCase() === user.email.toLowerCase() && u.id !== user.id,
-      );
-      if (emailTaken) {
-        return { ok: false, error: "Another user already uses this email address." };
-      }
-
-      const id = isNew ? nextId("USR", data.users) : user.id;
-      const record = publicUserRecord({
-        ...existing, id, name: user.name.trim(), email: user.email.trim().toLowerCase(),
-        role: user.role, hospitalId: user.role === "hospital_staff" ? user.hospitalId : null,
-        ownerId: user.role === "car_owner" ? user.ownerId : null,
-      });
-      commit(
-        (state) => ({
-          ...state,
-          users: isNew
-            ? [...state.users, { ...record, status: "active", lastSignIn: null }]
-            : state.users.map((u) => (u.id === id ? { ...u, ...record } : u)),
-        }),
-        {
-          category: "user",
-          action: isNew ? "Added demo user" : "Updated role assignment",
-          target: record.email,
-          detail: `Role: ${record.role}${record.hospitalId ? ` · Hospital: ${record.hospitalId}` : record.ownerId ? ` · Owner: ${record.ownerId}` : ""}.`,
-        },
-      );
-      notify(isNew ? `${record.name} added to demo only — no login created.` : `${record.name} updated.`);
-      return { ok: true };
-    },
-    [activeSuperusers.length, commit, data.users, data.hospitals, data.owners, notify],
-  );
-
-  const toggleUser = useCallback(
-    (id) => {
-      const user = data.users.find((u) => u.id === id);
-      if (!user) return { ok: false };
-      const suspend = user.status === "active";
-      if (!suspend && Object.keys(validateUserAssignment(user, data.hospitals, data.owners ?? [])).length) {
-        notify("Correct the user's role and hospital assignment before reactivating.", "red");
-        return { ok: false };
-      }
-      if (suspend && user.role === "superuser" && activeSuperusers.length <= 1) {
-        notify("At least one active superuser must remain.", "red");
-        return { ok: false };
-      }
-      commit(
-        (state) => ({
-          ...state,
-          users: state.users.map((u) =>
-            u.id === id ? { ...u, status: suspend ? "suspended" : "active" } : u,
-          ),
-        }),
-        {
-          category: "user",
-          action: suspend ? "Suspended user" : "Reactivated user",
-          target: user.email,
-          detail: suspend ? "Dashboard access suspended." : "Dashboard access restored.",
-        },
-      );
-      notify(`${user.name} ${suspend ? "suspended" : "reactivated"}.`, suspend ? "grey" : "green");
-      return { ok: true };
-    },
-    [activeSuperusers.length, commit, data.users, data.hospitals, data.owners, notify],
-  );
-
-  /* -------------------------- Preferences ------------------------- */
-
-  const setPreference = useCallback((key, value) => {
-    setData((state) => ({
-      ...state,
-      preferences: { ...state.preferences, [key]: value },
-    }));
-  }, []);
-
-  const resetDemo = useCallback(() => {
-    const fresh = buildSeed(Date.now());
-    setData(fresh);
-    setNow(Date.now());
-    notify("Demo data restored to the initial records.", "blue");
-  }, [notify]);
-
-  /* ---------------------------- Derived --------------------------- */
-
-  const value = useMemo(() => {
-    const hospitalById = Object.fromEntries(data.hospitals.map((h) => [h.id, h]));
-    const deviceById = Object.fromEntries(data.devices.map((d) => [d.id, d]));
-    const openIncidents = data.incidents.filter(
-      (i) => !["closed", "cancelled"].includes(i.status),
-    );
-    const pendingAlerts = openIncidents.reduce(
-      (count, incident) =>
-        count + incident.notifications.filter((n) => n.status === "notified").length,
-      0,
-    );
-
-    return {
-      ...data,
-      now,
-      hospitalById,
-      deviceById,
-      stats: {
-        totalIncidents: data.incidents.length,
-        openIncidents: openIncidents.length,
-        pendingAlerts,
-        onlineDevices: data.devices.filter((d) => d.status === "online").length,
-        totalDevices: data.devices.length,
-        activeHospitals: data.hospitals.filter((h) => h.active).length,
-        totalHospitals: data.hospitals.length,
-      },
-      toasts,
-      notify,
-      dismissToast,
-      notifyHospital,
-      closeIncident,
-      addIncidentNote,
-      simulateIncident,
-      saveHospital,
-      toggleHospital,
-      saveUser,
-      toggleUser,
-      setPreference,
-      resetDemo,
+  const refresh = useCallback(async (signal) => {
+    const request = ++sequence.current;
+    const timeout = AbortSignal.timeout(20000);
+    signal = signal ? AbortSignal.any([signal, timeout]) : timeout;
+    const jobs = {
+      overview:api.adminRequest("/api/admin/overview",token,{signal}),
+      incidents:api.getAll("/api/admin/incidents",token,signal),
+      devices:api.getAll("/api/admin/devices",token,signal),
+      hospitals:api.getAll("/api/admin/hospitals",token,signal),
+      users:api.getAll("/api/admin/users",token,signal),
+      owners:api.getAll("/api/admin/owners",token,signal),
+      vehicles:api.getAll("/api/admin/vehicles",token,signal),
+      audit:api.getAll("/api/admin/audit",token,signal),
     };
-  }, [
-    data,
-    now,
-    toasts,
-    notify,
-    dismissToast,
-    notifyHospital,
-    closeIncident,
-    addIncidentNote,
-    simulateIncident,
-    saveHospital,
-    toggleHospital,
-    saveUser,
-    toggleUser,
-    setPreference,
-    resetDemo,
-  ]);
+    const entries = Object.entries(jobs);
+    const settled = await Promise.allSettled(entries.map(([,job])=>job));
+    if (request !== sequence.current) return;
+    const rows = {};
+    const issues = {};
+    settled.forEach((item,i)=>{
+      const key = entries[i][0];
+      if(item.status==="fulfilled") rows[key]=item.value;
+      else issues[key]=item.reason?.message ?? "Request failed.";
+    });
+    if (rows.overview) setOverview(rows.overview);
+    setData(previous=>{
+      const next = {...previous};
+      if(rows.incidents) next.incidents=rows.incidents.map(r=>incidentView(r));
+      if(rows.devices) next.devices=rows.devices.map(r=>({id:r.id,code:r.device_code,status:r.status,
+        firmware:r.firmware_version,gps:r.gps_status,lastSeen:r.last_seen_at,lat:r.last_latitude,lng:r.last_longitude,
+        vehicle:rows.vehicles?.find(v=>v.id===r.vehicle_id)?.registration ?? (r.vehicle_id ? "Linked vehicle" : "Unassigned"),
+        vehicleModel:rows.vehicles?.find(v=>v.id===r.vehicle_id)?.model}));
+      if(rows.hospitals) next.hospitals=rows.hospitals.map(r=>({id:r.id,code:r.code,name:r.name,city:r.city,active:r.is_active,
+        phone:r.phone??"",email:r.email??"",address:r.address??"",lat:r.latitude,lng:r.longitude,registeredAt:r.created_at}));
+      if(rows.owners && rows.vehicles) next.owners=rows.owners.map(r=>{
+        const cars=rows.vehicles.filter(v=>v.owner_id===r.id);
+        return {id:r.id,name:r.full_name,userId:r.user_id,vehicleIds:cars.map(v=>v.id),registrations:cars.map(v=>v.registration)};
+      });
+      if(rows.users) next.users=rows.users.map(r=>({id:r.id,name:r.full_name,email:r.email??"",role:r.role,status:r.status,
+        hospitalId:r.hospital_id,ownerId:next.owners.find(o=>o.userId===r.id)?.id,lastSignIn:r.last_sign_in_at}));
+      if(rows.audit) next.audit=rows.audit.map(r=>({id:r.code??r.id,at:r.created_at,actor:r.actor_label,role:r.actor_role,
+        category:r.category,action:r.action,target:r.target_label??r.target_id,detail:r.detail}));
+      return next;
+    });
+    setErrors(issues);
+    setLoading(false);
+  },[token]);
 
-  return <SuperuserContext.Provider value={value}>{children}</SuperuserContext.Provider>;
+  useEffect(()=>{
+    const controller=new AbortController();
+    void refresh(controller.signal);
+    const clock=setInterval(()=>setNow(Date.now()),1000);
+    return ()=>{controller.abort(); ++sequence.current; clearInterval(clock);};
+  },[refresh]);
+
+  const getDetail = useCallback(async (id,signal)=>{
+    const [record,timeline]=await Promise.all([
+      api.adminRequest(`/api/admin/incidents/${encodeURIComponent(id)}`,token,{signal}),
+      api.adminRequest(`/api/incidents/${encodeURIComponent(id)}/timeline`,token,{signal}),
+    ]);
+    return incidentView(record,timeline.items);
+  },[token]);
+
+  const write = async (action,message) => {
+    if (writing.current) return {ok:false,error:"Another change is being saved."};
+    writing.current = true;
+    try {
+      await action();
+      notify(message);
+      setRevision(v=>v+1);
+      await refresh();
+      return {ok:true};
+    } catch(error) {
+      notify(error.message,"red");
+      return {ok:false,error:error.message};
+    } finally { writing.current = false; }
+  };
+  const saveHospital = (h) => {
+    const body={name:h.name,city:h.city,is_active:h.active};
+    if(h.phone) body.phone=h.phone;
+    if(h.email) body.email=h.email;
+    if(h.address || !h.id) body.address=h.address || null;
+    if(h.lat!=null) body.latitude=h.lat;
+    if(h.lng!=null) body.longitude=h.lng;
+    if((h.lat==null)!==(h.lng==null)) return Promise.resolve({ok:false,error:"Enter both coordinates or leave both blank."});
+    return write(()=>h.id?api.updateHospital(token,h.id,body):api.createHospital(token,body),"Hospital saved.");
+  };
+  const toggleHospital = (id) => write(()=>api.updateHospital(token,id,{is_active:!data.hospitals.find(h=>h.id===id).active}),"Hospital status updated.");
+  const saveUser = (u) => write(()=>u.id
+    ? api.updateUser(token,u.id,{hospital_id:u.hospitalId})
+    : api.createUser(token,u),"Account saved.");
+  const toggleUser = (id) => write(()=>api.adminRequest(`/api/admin/users/${encodeURIComponent(id)}/status`,token,{
+    method:"PATCH",body:JSON.stringify({status:data.users.find(u=>u.id===id).status==="active"?"suspended":"active"})}),"Account status updated.");
+  const stats = {
+    totalIncidents:overview.total_incidents ?? data.incidents.length,
+    openIncidents:overview.open_incidents ?? data.incidents.filter(i=>!["closed","cancelled"].includes(i.status)).length,
+    pendingAlerts:overview.pending_alerts ?? overview.pending_notifications ?? "—",
+    onlineDevices:overview.online_devices ?? data.devices.filter(d=>d.status==="online").length,
+    totalDevices:overview.total_devices ?? data.devices.length,
+    activeHospitals:overview.active_hospitals ?? data.hospitals.filter(h=>h.active).length,
+    totalHospitals:overview.total_hospitals ?? data.hospitals.length,
+  };
+  return <SuperuserContext.Provider value={{
+    ...data,now,stats,loading,errors,refresh:()=>refresh(),getDetail,revision,
+    profile, signOut:()=>signOut().catch(e=>notify(e.message,"red")),
+    hospitalById:Object.fromEntries(data.hospitals.map(h=>[h.id,h])),
+    deviceById:Object.fromEntries(data.devices.map(d=>[d.id,d])),
+    toasts,dismissToast,notify,preferences,setPreference:(key,value)=>setPreferences(p=>({...p,[key]:value})),
+    saveHospital,toggleHospital,saveUser,toggleUser,
+    notifyHospital:(id,hospital)=>write(()=>api.routeIncident(token,id,hospital),"Hospital notified."),
+    closeIncident:(id,note)=>write(()=>api.closeIncident(token,id,note),"Incident closed."),
+    addIncidentNote:(id,body)=>write(()=>api.adminRequest(`/api/incidents/${encodeURIComponent(id)}/notes`,token,{method:"POST",body:JSON.stringify({body})}),"Note saved."),
+  }}>{children}</SuperuserContext.Provider>;
 }
-

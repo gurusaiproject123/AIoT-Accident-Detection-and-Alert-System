@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router";
 import Icon from "./components/Icon";
 import Background from "./components/Background";
 import { Toasts } from "./components/ui";
 import { useSuperuser } from "./useSuperuser";
-import { BASE_PATH, NAV_ITEMS, formatRelative } from "./data";
+import { BASE_PATH, NAV_ITEMS } from "./data";
 
 const SECTION_LABELS = {
   "": "Overview",
@@ -27,17 +27,14 @@ function useBreadcrumb() {
 export default function SuperuserLayout({ embedded = false }) {
   const {
     incidents,
-    hospitalById,
     stats,
     now,
     toasts,
     dismissToast,
-    simulateIncident,
+    profile, signOut, loading, errors, refresh,
     preferences,
   } = useSuperuser();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [bellOpen, setBellOpen] = useState(false);
-  const bellRef = useRef(null);
   const crumbs = useBreadcrumb();
   const { pathname } = useLocation();
   const [routeKey, setRouteKey] = useState(pathname);
@@ -46,32 +43,13 @@ export default function SuperuserLayout({ embedded = false }) {
   if (routeKey !== pathname) {
     setRouteKey(pathname);
     setMenuOpen(false);
-    setBellOpen(false);
   }
-
-  // Close the notification dropdown on outside click.
-  useEffect(() => {
-    if (!bellOpen) return undefined;
-    const onClick = (event) => {
-      if (bellRef.current && !bellRef.current.contains(event.target)) setBellOpen(false);
-    };
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, [bellOpen]);
-
-  const pending = incidents
-    .filter((i) => !["closed", "cancelled"].includes(i.status))
-    .flatMap((incident) =>
-      incident.notifications
-        .filter((n) => n.status === "notified")
-        .map((n) => ({ incident, notification: n })),
-    );
 
   const countdowns = incidents
     .filter((i) => i.status === "cancellation_window")
     .map((incident) => {
       const deadline =
-        new Date(incident.detectedAt).getTime() + incident.cancellation.windowSeconds * 1000;
+        incident.cancellation.deadline ? Date.parse(incident.cancellation.deadline) : new Date(incident.detectedAt).getTime() + incident.cancellation.windowSeconds * 1000;
       return { incident, remaining: Math.max(0, Math.ceil((deadline - now) / 1000)) };
     });
 
@@ -146,12 +124,12 @@ export default function SuperuserLayout({ embedded = false }) {
           <div className="su-user-card">
             <span className="su-avatar">SU</span>
             <div>
-              <strong>System administrator</strong>
-              <small>Demo superuser account</small>
+              <strong>{profile.name || "System administrator"}</strong>
+              <small>Verified superuser</small>
             </div>
-            <Link to="/login" className="su-icon-btn su-logout" aria-label="Open login (demo)" title="Open login; the demo has no authenticated session">
+            <button type="button" onClick={signOut} className="su-icon-btn su-logout" aria-label="Sign out">
               <Icon name="logout" size={16} />
-            </Link>
+            </button>
           </div>
         </aside>
       )}
@@ -186,50 +164,16 @@ export default function SuperuserLayout({ embedded = false }) {
 
           <div className="su-topbar-right">
             <span className="su-demo-pill">
-              <span className="su-live-dot" /> Demo workspace
+              <span className="su-live-dot" /> Admin workspace
             </span>
-            <button type="button" className="su-btn su-btn-outline" onClick={simulateIncident}>
-              <Icon name="play" size={15} />
-              <span className="su-hide-sm">Simulate detection</span>
+            <button type="button" className="su-btn su-btn-outline" onClick={refresh}>
+              <Icon name="refresh" size={15} />
+              <span className="su-hide-sm">Refresh data</span>
             </button>
 
-            <div className="su-bell" ref={bellRef}>
-              <button
-                type="button"
-                className="su-icon-btn"
-                aria-label={`Pending hospital alerts: ${pending.length}`}
-                aria-expanded={bellOpen}
-                onClick={() => setBellOpen((open) => !open)}
-              >
-                <Icon name="bell" />
-                {pending.length > 0 && <span className="su-bell-count">{pending.length}</span>}
-              </button>
-              {bellOpen && (
-                <div className="su-dropdown">
-                  <p className="su-dropdown-title">Awaiting hospital response</p>
-                  {pending.length === 0 && <p className="su-dropdown-empty">No pending alerts.</p>}
-                  {pending.map(({ incident, notification }) => (
-                    <Link
-                      key={`${incident.id}-${notification.hospitalId}`}
-                      to={`${BASE_PATH}/incidents/${incident.id}`}
-                      className="su-dropdown-item"
-                    >
-                      <span className="su-dropdown-icon">
-                        <Icon name="bell" size={15} />
-                      </span>
-                      <span>
-                        <strong>{incident.id}</strong>
-                        <small>
-                          {hospitalById[notification.hospitalId]?.name ?? notification.hospitalId} ·{" "}
-                          {formatRelative(notification.notifiedAt, now)}
-                        </small>
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-            <span className="su-avatar su-avatar-light">SU</span>
+            <Link to={`${BASE_PATH}/incidents`} className="su-icon-btn" aria-label="View incidents">
+              <Icon name="bell" />
+            </Link>
           </div>
         </header>
 
@@ -252,11 +196,13 @@ export default function SuperuserLayout({ embedded = false }) {
         )}
 
         <main className="su-content" id="superuser-content">
-          <Outlet />
+          {loading && <p role="status">Loading dashboard…</p>}
+          {Object.keys(errors).length > 0 && <div role="alert">{Object.entries(errors).map(([section, message]) => <p key={section}>{section}: {message}</p>)}</div>}
+          {!loading && <Outlet />}
         </main>
 
         <footer className="su-footer">
-          Academic prototype · all incidents, hospitals, devices and contacts are simulated.
+          Academic prototype · administrative records are loaded from the backend.
         </footer>
       </div>
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import Icon from "../components/Icon";
 import { Badge, DetailList, EmptyState, Field, Modal, Panel, StatusBadge } from "../components/ui";
@@ -44,21 +44,32 @@ const TIMELINE_TONES = {
 
 export default function IncidentDetail() {
   const { incidentId } = useParams();
-  const { incidents, hospitals, hospitalById, deviceById, now, notifyHospital, closeIncident, addIncidentNote } =
+  const { getDetail, revision, hospitals, hospitalById, deviceById, now, notifyHospital, closeIncident, addIncidentNote } =
     useSuperuser();
-  const incident = incidents.find((i) => i.id === incidentId);
+  const [loaded, setLoaded] = useState(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    getDetail(incidentId, controller.signal)
+      .then(record => { if (!controller.signal.aborted) setLoaded({id:incidentId, revision, record}); })
+      .catch(error => { if (!controller.signal.aborted) setLoaded({id:incidentId, revision, error:error.message}); });
+    return () => controller.abort();
+  }, [getDetail, incidentId, revision]);
+  const current = loaded?.id === incidentId && loaded.revision === revision ? loaded : null;
+  const incident = current?.record;
 
   const [routeTo, setRouteTo] = useState("");
   const [note, setNote] = useState("");
   const [closing, setClosing] = useState(false);
   const [closeNote, setCloseNote] = useState("");
 
+  if (!current) return <p role="status">Loading incident…</p>;
+
   if (!incident) {
     return (
       <div className="su-page">
         <Panel>
           <EmptyState icon="alert" title={`Incident ${incidentId} is unavailable`}>
-            It may have been removed, or the link is incorrect.
+            {current.error ?? "Check the incident link."}
           </EmptyState>
           <div className="su-center">
             <Link to={`${BASE_PATH}/incidents`} className="su-btn su-btn-soft">
@@ -78,26 +89,24 @@ export default function IncidentDetail() {
   const url = mapsUrl(incident.location?.lat, incident.location?.lng);
 
   const deadline =
-    new Date(incident.detectedAt).getTime() + incident.cancellation.windowSeconds * 1000;
+    incident.cancellation.deadline ? Date.parse(incident.cancellation.deadline) : new Date(incident.detectedAt).getTime() + incident.cancellation.windowSeconds * 1000;
   const remaining = Math.max(0, Math.ceil((deadline - now) / 1000));
 
   const cancellation = {
     pending: { label: "Window running", tone: "amber", text: `${remaining}s left for a local false-alarm cancellation.` },
-    expired: { label: "Not cancelled", tone: "red", text: "The cancellation window ended without a cancellation, so hospitals were notified." },
+    expired: { label: "Not cancelled", tone: "red", text: "The cancellation window ended without a cancellation, before the incident could be cancelled." },
     cancelled: { label: "Cancelled", tone: "grey", text: `Cancelled as a false alarm by ${incident.cancellation.by ?? "an authorised operator"}.` },
   }[incident.cancellation.outcome];
 
-  const submitNote = (event) => {
+  const submitNote = async (event) => {
     event.preventDefault();
     if (!note.trim()) return;
-    addIncidentNote(incident.id, note.trim());
-    setNote("");
+    if ((await addIncidentNote(incident.id, note.trim())).ok) setNote("");
   };
 
-  const submitRoute = () => {
+  const submitRoute = async () => {
     if (!routeTo) return;
-    notifyHospital(incident.id, routeTo);
-    setRouteTo("");
+    if ((await notifyHospital(incident.id, routeTo)).ok) setRouteTo("");
   };
 
   return (
@@ -145,7 +154,7 @@ export default function IncidentDetail() {
                   label: "Model score",
                   value: (
                     <span title="Random Forest output — not a calibrated crash probability">
-                      {incident.modelScore.toFixed(2)}
+                      {incident.modelScore?.toFixed(2) ?? "—"}
                     </span>
                   ),
                 },
@@ -313,8 +322,8 @@ export default function IncidentDetail() {
               <button
                 type="button"
                 className="su-btn su-btn-primary"
-                onClick={() => {
-                  closeIncident(incident.id, closeNote.trim());
+                onClick={async () => {
+                  if (!(await closeIncident(incident.id, closeNote.trim())).ok) return;
                   setClosing(false);
                   setCloseNote("");
                 }}

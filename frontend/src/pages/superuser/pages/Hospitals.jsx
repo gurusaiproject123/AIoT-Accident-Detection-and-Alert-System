@@ -7,7 +7,7 @@ import { useSuperuser } from "../useSuperuser";
 import { formatCoords, formatDateTime } from "../data";
 
 export default function Hospitals() {
-  const { hospitals, users, incidents, saveHospital, toggleHospital } = useSuperuser();
+  const { hospitals, users, saveHospital, toggleHospital } = useSuperuser();
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState(null); // null | "new" | hospital
@@ -19,12 +19,7 @@ export default function Hospitals() {
     .filter((h) => !text || [h.id, h.name, h.city, h.email].join(" ").toLowerCase().includes(text));
 
   const staffCount = (id) => users.filter((u) => u.role === "hospital_staff" && u.hospitalId === id && u.status === "active").length;
-  const openCount = (id) =>
-    incidents.filter(
-      (i) =>
-        !["closed", "cancelled"].includes(i.status) &&
-        i.notifications.some((n) => n.hospitalId === id && ["notified", "acknowledged", "accepted"].includes(n.status)),
-    ).length;
+
 
   const activeCount = hospitals.filter((h) => h.active).length;
 
@@ -68,7 +63,7 @@ export default function Hospitals() {
                 <div>
                   <h3>{hospital.name}</h3>
                   <small>
-                    {hospital.id} · {hospital.city}
+                    {hospital.code || hospital.id} · {hospital.city}
                   </small>
                 </div>
                 <Badge tone={hospital.active ? "green" : "grey"}>{hospital.active ? "Active" : "Inactive"}</Badge>
@@ -77,7 +72,7 @@ export default function Hospitals() {
               <ul className="su-hospital-meta">
                 <li>
                   <Icon name="mapPin" size={14} />
-                  <span>{hospital.address || "No address recorded"}</span>
+                  <span>{hospital.address || "Address not in registry list"}</span>
                 </li>
                 <li>
                   <Icon name="bell" size={14} />
@@ -98,10 +93,7 @@ export default function Hospitals() {
                   <strong>{staffCount(hospital.id)}</strong>
                   <small>Active staff</small>
                 </div>
-                <div>
-                  <strong>{openCount(hospital.id)}</strong>
-                  <small>Open incidents</small>
-                </div>
+
                 <div>
                   <strong>{formatDateTime(hospital.registeredAt).split(",")[0]}</strong>
                   <small>Registered</small>

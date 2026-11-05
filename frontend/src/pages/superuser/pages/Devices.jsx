@@ -13,7 +13,7 @@ export default function Devices() {
   const filtered = devices
     .filter((d) => status === "all" || d.status === status)
     .filter((d) =>
-      !text ? true : [d.id, d.vehicle, d.vehicleModel, d.owner].join(" ").toLowerCase().includes(text),
+      !text ? true : [d.code, d.id, d.vehicle, d.vehicleModel, d.owner].join(" ").toLowerCase().includes(text),
     );
 
   const count = (key) => devices.filter((d) => d.status === key).length;
@@ -83,7 +83,7 @@ export default function Devices() {
                           <span className={`su-device-icon su-tone-${DEVICE_STATUS[device.status].tone}`}>
                             <Icon name="cpu" size={15} />
                           </span>
-                          <span className="su-mono su-strong">{device.id}</span>
+                          <span className="su-mono su-strong">{device.code || device.id}</span>
                         </span>
                       </td>
                       <td>
@@ -118,7 +118,7 @@ export default function Devices() {
           </div>
         )}
         <p className="su-table-foot">
-          Demo values only — live heartbeat, network and GPS data will come from the backend.
+          Device and GPS status reflect the latest backend records.
         </p>
       </Panel>
     </div>

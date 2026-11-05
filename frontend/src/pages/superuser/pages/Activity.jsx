@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Icon from "../components/Icon";
-import { Badge, ConfirmDialog, EmptyState, FilterTabs, PageHeading, Panel, SearchInput } from "../components/ui";
+import { Badge, EmptyState, FilterTabs, PageHeading, Panel, SearchInput } from "../components/ui";
 import { useSuperuser } from "../useSuperuser";
 import { AUDIT_CATEGORIES, downloadFile, formatDateTime, formatRelative, toCsv } from "../data";
 
@@ -13,10 +13,9 @@ const CATEGORY_TONES = {
 };
 
 export default function Activity() {
-  const { audit, now, preferences, setPreference, resetDemo } = useSuperuser();
+  const { audit, now, preferences, setPreference } = useSuperuser();
   const [category, setCategory] = useState("all");
   const [query, setQuery] = useState("");
-  const [confirmReset, setConfirmReset] = useState(false);
 
   const text = query.trim().toLowerCase();
   const filtered = audit
@@ -117,7 +116,7 @@ export default function Activity() {
         </p>
       </Panel>
 
-      <Panel title="Workspace preferences" subtitle="Saved in this browser for the demo." icon="settings">
+      <Panel title="Workspace preferences" subtitle="Applies to this workspace session." icon="settings">
         <div className="su-pref-row">
           <label className="su-switch">
             <input
@@ -131,22 +130,10 @@ export default function Activity() {
               <small>Operating-system reduced-motion settings are always respected.</small>
             </span>
           </label>
-          <button type="button" className="su-btn su-btn-ghost-danger" onClick={() => setConfirmReset(true)}>
-            <Icon name="refresh" size={15} /> Reset demo
-          </button>
         </div>
       </Panel>
 
-      {confirmReset && (
-        <ConfirmDialog
-          title="Reset demo data?"
-          message="This restores the initial incidents, devices, hospitals, users and activity history in this browser."
-          confirmLabel="Reset demo"
-          tone="danger"
-          onConfirm={resetDemo}
-          onClose={() => setConfirmReset(false)}
-        />
-      )}
+
     </div>
   );
 }

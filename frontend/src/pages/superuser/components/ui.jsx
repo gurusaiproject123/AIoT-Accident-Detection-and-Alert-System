@@ -211,9 +211,9 @@ export function ConfirmDialog({ title, message, confirmLabel = "Confirm", tone =
           <button
             type="button"
             className={`su-btn ${tone === "danger" ? "su-btn-danger" : "su-btn-primary"}`}
-            onClick={() => {
-              onConfirm();
-              onClose();
+            onClick={async () => {
+              const result = await onConfirm();
+              if (result?.ok !== false) onClose();
             }}
           >
             {confirmLabel}
@@ -313,7 +313,7 @@ export function IncidentTable({ incidents, statusMap, compact = false }) {
           {incidents.map((incident) => (
             <tr key={incident.id}>
               <td>
-                <span className="su-mono su-strong">{incident.id}</span>
+                <span className="su-mono su-strong">{incident.code || incident.id}</span>
               </td>
               <td className="su-mono">{incident.deviceId}</td>
               <td>{formatDateTime(incident.detectedAt)}</td>

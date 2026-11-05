@@ -22,15 +22,15 @@ function validate(values, hospitals, editingId) {
     errors.name = "A hospital with this name is already registered.";
   }
   if (!values.city.trim()) errors.city = "City or town is required.";
-  if (!values.phone.trim()) errors.phone = "An emergency contact number is required.";
-  else if (!/^[+\d][\d\s-]{6,}$/.test(values.phone.trim())) errors.phone = "Enter a valid phone number.";
-  if (!values.email.trim()) errors.email = "A notification email is required.";
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) errors.email = "Enter a valid email address.";
+  if (!editingId && !values.phone.trim()) errors.phone = "An emergency contact number is required.";
+  else if (values.phone.trim() && !/^[+\d][\d\s-]{6,}$/.test(values.phone.trim())) errors.phone = "Enter a valid phone number.";
+  if (!editingId && !values.email.trim()) errors.email = "A notification email is required.";
+  else if (values.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) errors.email = "Enter a valid email address.";
 
   const lat = Number(values.lat);
   const lng = Number(values.lng);
-  if (values.lat === "" || Number.isNaN(lat) || lat < -90 || lat > 90) errors.lat = "Latitude between -90 and 90.";
-  if (values.lng === "" || Number.isNaN(lng) || lng < -180 || lng > 180) errors.lng = "Longitude between -180 and 180.";
+  if ((!editingId && values.lat === "") || Number.isNaN(lat) || lat < -90 || lat > 90) errors.lat = "Latitude between -90 and 90.";
+  if ((!editingId && values.lng === "") || Number.isNaN(lng) || lng < -180 || lng > 180) errors.lng = "Longitude between -180 and 180.";
   return errors;
 }
 
@@ -50,23 +50,29 @@ export default function HospitalForm({ hospital, hospitals, onSave, onClose }) {
     setErrors((current) => ({ ...current, [key]: undefined }));
   };
 
-  const submit = (event) => {
+  const [saving, setSaving] = useState(false);
+  const submit = async (event) => {
     event.preventDefault();
+    if (saving) return;
     const found = validate(values, hospitals, hospital?.id);
     setErrors(found);
     if (Object.keys(found).length) return;
-    onSave({
+    setSaving(true);
+    try {
+    const result = await onSave({
       ...(hospital ?? {}),
       name: values.name.trim(),
       city: values.city.trim(),
       address: values.address.trim(),
       phone: values.phone.trim(),
       email: values.email.trim(),
-      lat: Number(values.lat),
-      lng: Number(values.lng),
+      lat: values.lat === "" ? null : Number(values.lat),
+      lng: values.lng === "" ? null : Number(values.lng),
       active: values.active,
     });
-    onClose();
+    if (result?.ok) onClose();
+    else setErrors({form: result?.error ?? "Could not save hospital."});
+    } finally { setSaving(false); }
   };
 
   return (
@@ -74,23 +80,24 @@ export default function HospitalForm({ hospital, hospitals, onSave, onClose }) {
       title={isEdit ? `Edit ${hospital.name}` : "Register hospital"}
       subtitle={
         isEdit
-          ? `${hospital.id} · changes are recorded in the activity history.`
+          ? `${hospital.id} · Leave unavailable contact and GPS fields blank to keep their stored values.`
           : "Registered hospitals can receive incident notifications when active."
       }
-      onClose={onClose}
+      onClose={saving ? () => {} : onClose}
       footer={
         <>
-          <button type="button" className="su-btn su-btn-ghost" onClick={onClose}>
+          <button type="button" className="su-btn su-btn-ghost" onClick={onClose} disabled={saving}>
             Cancel
           </button>
-          <button type="submit" form="hospital-form" className="su-btn su-btn-primary">
+          <button type="submit" form="hospital-form" disabled={saving} className="su-btn su-btn-primary">
             {isEdit ? "Save changes" : "Register hospital"}
           </button>
         </>
       }
     >
       <form id="hospital-form" className="su-form-grid" onSubmit={submit} noValidate>
-        <Field label="Hospital name" error={errors.name}>
+        {errors.form && <p role="alert" className="su-form-error su-form-full">{errors.form}</p>}
+          <Field label="Hospital name" error={errors.name}>
           <input value={values.name} onChange={set("name")} placeholder="e.g. Bindura Hospital" />
         </Field>
         <Field label="City / town" error={errors.city}>

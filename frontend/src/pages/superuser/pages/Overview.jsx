@@ -43,11 +43,6 @@ export default function Overview() {
     gpsIssues: devices.filter((d) => d.gps !== "fix").length,
   };
 
-  const openByHospital = incidents
-    .filter((i) => !["closed", "cancelled"].includes(i.status))
-    .flatMap((i) => i.notifications.filter((n) => ["notified", "acknowledged", "accepted"].includes(n.status)))
-    .reduce((acc, n) => ({ ...acc, [n.hospitalId]: (acc[n.hospitalId] ?? 0) + 1 }), {});
-
   const isAlerting = stats.pendingAlerts > 0 || countByStatus.cancellation_window > 0;
   const dateLabel = new Date(now).toLocaleString(undefined, {
     month: "short",
@@ -91,7 +86,7 @@ export default function Overview() {
               Manage hospitals
             </Link>
           </div>
-          <small className="su-hero-note">Academic prototype · all incidents are simulated</small>
+          <small className="su-hero-note">Academic prototype · connected to FastAPI</small>
         </div>
         <div className="su-hero-visual">
           <PulseRing alert={isAlerting} animated={preferences?.animations !== false} />
@@ -99,7 +94,7 @@ export default function Overview() {
             <Icon name="mapPin" size={14} /> Location received
           </span>
           <span className="su-float-chip su-chip-b">
-            <span className="su-live-dot" /> {stats.activeHospitals} hospitals connected
+            <span className="su-live-dot" /> {stats.activeHospitals} active hospitals
           </span>
           <span className="su-float-chip su-chip-c">
             <Icon name="cpu" size={14} /> {stats.onlineDevices} devices online
@@ -226,7 +221,7 @@ export default function Overview() {
               <strong>{deviceCounts.gpsIssues}</strong>
             </div>
           </div>
-          <p className="su-panel-foot">Live heartbeat data will replace these demo values.</p>
+          <p className="su-panel-foot">Device status is reported by the backend.</p>
         </Panel>
 
         <Panel
@@ -249,7 +244,7 @@ export default function Overview() {
                   </small>
                 </span>
                 <span className="su-list-meta">
-                  {hospital.active ? `${openByHospital[hospital.id] ?? 0} open` : "Inactive"}
+                  {hospital.active ? "Active" : "Inactive"}
                 </span>
               </li>
             ))}
