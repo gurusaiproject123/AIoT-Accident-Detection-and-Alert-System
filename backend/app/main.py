@@ -6,6 +6,8 @@ from app.routers.admin_hospitals import router as admin_hospitals_router
 from app.routers.admin_users import router as admin_users_router
 from app.routers.admin_audit import router as admin_audit_router
 from app.routers.admin_overview import router as admin_overview_router
+from app.routers.admin_incidents import router as admin_incidents_router
+from app.routers.incidents import router as incidents_router
 
 
 app = FastAPI(
@@ -21,7 +23,7 @@ app.add_middleware(
         "http://127.0.0.1:5173",
     ],
     allow_methods=["GET", "POST", "PATCH"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Authorization", "Content-Type", "X-Device-Secret"],
 )
 
 # Authentication and administration routes.
@@ -30,6 +32,8 @@ app.include_router(admin_hospitals_router)
 app.include_router(admin_users_router)
 app.include_router(admin_audit_router)
 app.include_router(admin_overview_router)
+app.include_router(admin_incidents_router)
+app.include_router(incidents_router)
 
 
 @app.get("/api/health", tags=["Health"])
