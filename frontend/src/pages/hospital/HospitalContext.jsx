@@ -9,6 +9,11 @@ export const useHospital = () => useContext(HospitalContext);
 export function HospitalProvider({ children }) {
   const { session, profile, signOut } = useAuth();
   const token = session?.access_token;
+  const [hospital, setHospital] = useState(null);
+  const [hospitalError, setHospitalError] = useState(false);
+  const [hospitalAttempt, setHospitalAttempt] = useState(0);
+  const retryHospital = () => setHospitalAttempt((value) => value + 1);
+  const hospitalId = profile?.hospitalId;
   const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [feedError, setFeedError] = useState("");
@@ -23,6 +28,25 @@ export function HospitalProvider({ children }) {
   const navigate = useNavigate();
   const toast = setNotice;
   const request = useCallback((path, options) => hospitalRequest(token, path, options), [token]);
+
+  useEffect(() => {
+    if (!hospitalId) return;
+    const controller = new AbortController();
+    request("/api/auth/me/hospital", { signal: controller.signal }).then((result) => {
+      if (controller.signal.aborted) return;
+      if (result.id !== hospitalId || typeof result.name !== "string" || !result.name.trim()) {
+        throw new Error("Invalid hospital assignment.");
+      }
+      setHospital(result);
+      setHospitalError(false);
+    }).catch(() => {
+      if (!controller.signal.aborted) {
+        setHospital(null);
+        setHospitalError(true);
+      }
+    });
+    return () => controller.abort();
+  }, [hospitalId, request, hospitalAttempt]);
 
   const refresh = useCallback(async () => {
     currentRequest.current?.abort();
@@ -80,8 +104,10 @@ export function HospitalProvider({ children }) {
   const newCount = incidents.filter((item) => item.status === "New").length;
   const alarmActive = sound && newCount > 0;
   const active = incidents.filter((item) => ["New", "Acknowledged", "Accepted"].includes(item.status));
-  const hospitalName = incidents.find((item) => item.hospital?.name)?.hospital.name || "Assigned hospital";
-  const hospitalCode = incidents.find((item) => item.hospital?.code)?.hospital.code;
+  const assignedAlertHospital = incidents.find((item) => item.hospital?.id === hospitalId)?.hospital;
+  const displayedHospital = hospital?.id === hospitalId ? hospital : assignedAlertHospital;
+  const hospitalName = displayedHospital?.name || "Assigned hospital";
+  const hospitalCode = displayedHospital?.code;
   const history = incidents.flatMap((item) => [
     [item.created, "Alert received"],
     [item.acknowledgedAt, "Alert acknowledged"],
@@ -209,7 +235,7 @@ export function HospitalProvider({ children }) {
   }
 
   return <HospitalContext.Provider value={{ incidents, loading, feedError, lastSync, refresh, request,
-    hospitalName, hospitalCode, profile, signOut, motion, setMotion, notice, setNotice, sound, clock,
+    hospitalName, hospitalCode, hospitalError: hospitalError && !displayedHospital, retryHospital, profile, signOut, motion, setMotion, notice, setNotice, sound, clock,
     newCount, alarmActive, active, history, age, toast, openIncident, enableSound, exportCsv }}>
     {children}
   </HospitalContext.Provider>;

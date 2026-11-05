@@ -7,7 +7,7 @@ import Background from "./components/Background";
 
 export default function HospitalLayout({ embedded = false }) {
   const {
-    motion, profile, signOut, hospitalName, hospitalCode, loading, feedError, lastSync, refresh,
+    motion, profile, signOut, hospitalName, hospitalCode, hospitalError, retryHospital, loading, feedError, lastSync, refresh,
     sound,
     enableSound,
     newCount,
@@ -81,6 +81,11 @@ export default function HospitalLayout({ embedded = false }) {
           </div>
           <Icon name="shield" size={15} />
         </div>
+        {hospitalError && (
+          <button type="button" className="hd-text-link" onClick={retryHospital}>
+            Hospital name unavailable · Retry
+          </button>
+        )}
         <span className="hd-nav-label">WORKSPACE</span>
         <nav aria-label="Hospital navigation" onClick={() => setMenu(false)}>
           {NAV.map(([key, label, icon]) => (
