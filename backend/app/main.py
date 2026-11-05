@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.routers.alerts import router as alerts_router
 from app.routers.auth import router as auth_router
 from app.routers.admin_hospitals import router as admin_hospitals_router
 from app.routers.admin_users import router as admin_users_router
@@ -37,5 +38,10 @@ app.include_router(incidents_router)
 
 
 @app.get("/api/health", tags=["Health"])
+async def health_check():
+    return {"status": "ok"}
+
+
+app.include_router(alerts_router)
 def health_check():
     return {"status": "ok"}
