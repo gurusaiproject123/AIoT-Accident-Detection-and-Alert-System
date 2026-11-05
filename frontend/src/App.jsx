@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router";
+
 import Login from "./pages/auth/Login";
 import RequireRole from "./pages/auth/RequireRole";
 import { homeForProfile } from "./pages/auth/accountRules";
 import { useAuth } from "./pages/auth/useAuth";
+import HospitalDashboard from "./pages/hospital/HospitalDashboard";
 import SuperuserDashboard from "./pages/superuser/SuperuserDashboard";
+
 import "./App.css";
 
 function Workspace({ title }) {
@@ -19,7 +22,7 @@ function Workspace({ title }) {
     try {
       await signOut();
     } catch (err) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : "Could not sign out. Please try again.");
     } finally {
       setPending(false);
     }
@@ -64,19 +67,15 @@ export default function App() {
         <Route path="/login" element={<Login />} />
 
         <Route
+          path="/hospital/*"
+          element={<HospitalDashboard />}
+        />
+
+        <Route
           path="/superuser/*"
           element={
             <RequireRole roles={["superuser"]}>
               <SuperuserDashboard />
-            </RequireRole>
-          }
-        />
-
-        <Route
-          path="/hospital/*"
-          element={
-            <RequireRole roles={["hospital_staff"]}>
-              <Workspace title="Hospital Dashboard" />
             </RequireRole>
           }
         />
