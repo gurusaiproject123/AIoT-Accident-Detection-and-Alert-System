@@ -9,7 +9,6 @@ export default function Overview() {
     newCount,
     active,
     history,
-    openIncident,
     enableSound,
     sound,
   } = useHospital();
@@ -32,13 +31,13 @@ export default function Overview() {
           <Link className="hd-button hd-button-mint" to="/hospital/incidents">
             Review assigned alerts <Icon name="arrow" size={16} />
           </Link>
-          <small>Academic prototype · all incidents are simulated</small>
+          <small>Academic prototype · assigned hospital alerts</small>
         </div>
         <div className="hd-hero-art">
           <div className="hd-hero-grid" />
           <Orb />
           <span className="hd-float-chip hd-chip-one">
-            <Icon name="pin" size={14} /> Location received
+            <Icon name="pin" size={14} /> GPS when available
           </span>
           <span className="hd-float-chip hd-chip-two">
             <span className="hd-dot" /> Incident awareness
@@ -116,13 +115,13 @@ export default function Overview() {
             </div>
             <Icon name="map" size={18} />
           </div>
-          <MapView incidents={active} onSelect={openIncident} />
+          <MapView incidents={active} />
           <div className="hd-map-footer">
             <span>
-              <i /> Hospital <b /> Incident
+              Reported GPS coordinates
             </span>
             <Link to="/hospital/health" className="hd-text-link">
-              Explore map <Icon name="arrow" size={14} />
+              View locations <Icon name="arrow" size={14} />
             </Link>
           </div>
         </section>
@@ -145,7 +144,7 @@ export default function Overview() {
                   <Icon name={i === 0 ? "bell" : "check"} size={15} />
                 </span>
                 <div>
-                  <strong>{e.id}</strong>
+                  <strong>{e.code}</strong>
                   <p>{e.text}</p>
                 </div>
                 <small>{time(e.at)}</small>

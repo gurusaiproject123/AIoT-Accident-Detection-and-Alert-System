@@ -1,9 +1,8 @@
 import { useHospital } from "../HospitalContext";
-import { HOSPITAL } from "../data";
 import { Icon, Orb } from "../components/ui";
 
 export default function Reports() {
-  const { incidents, exportCsv } = useHospital();
+  const { incidents, exportCsv, hospitalName } = useHospital();
   return (
     <>
       <div className="hd-report-hero">
@@ -11,8 +10,7 @@ export default function Reports() {
           <span className="hd-eyebrow">HOSPITAL ACTIVITY</span>
           <h2>A clearer view of your response.</h2>
           <p>
-            Export complete incident details and response audit histories for
-            your hospital. Demo data only.
+            Export the alert summary for your hospital.
           </p>
           <button className="hd-button hd-button-primary" onClick={exportCsv}>
             <Icon name="download" size={17} /> Export incident CSV
@@ -31,8 +29,8 @@ export default function Reports() {
               "Acknowledged",
               "Accepted",
               "Declined",
-              "Escalated",
-              "Escalation pending",
+              "Timed out",
+              "Withdrawn",
               "Closed",
             ].map((s) => {
               const count = incidents.filter((i) => i.status === s).length;
@@ -45,7 +43,7 @@ export default function Reports() {
                   <div className="hd-bar-track">
                     <span
                       style={{
-                        width: `${(count / incidents.length) * 100}%`,
+                        width: `${(count / Math.max(1, incidents.length)) * 100}%`,
                       }}
                     />
                   </div>
@@ -58,8 +56,8 @@ export default function Reports() {
           <Icon name="shield" size={30} />
           <h2>Hospital-scoped reporting</h2>
           <p>
-            {incidents.length} demo incidents are assigned to {HOSPITAL.name}.{" "}
-            {incidents.filter((i) => i.lat !== null).length} have sample GPS
+            {incidents.length} alerts are available for {hospitalName}.{" "}
+            {incidents.filter((i) => i.lat !== null).length} have reported GPS
             coordinates.
           </p>
           <p>

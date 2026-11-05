@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from "react";
 import { useHospital } from "../HospitalContext";
-import { time, isAwaitingAcknowledgment, DEMO_STAFF, HOSPITAL } from "../data";
+import { time, isAwaitingAcknowledgment } from "../data";
 const ICONS = {
   grid: (
     <>
@@ -136,92 +135,17 @@ export function Orb({ small = false }) {
     </div>
   );
 }
-export function MapView({ incidents, onSelect, large = false }) {
-  const points = [
-    [220, 130],
-    [410, 95],
-    [340, 220],
-    [510, 175],
-    [155, 255],
-    [450, 265],
-  ];
-  return (
-    <div className={`hd-map ${large ? "hd-map-large" : ""}`}>
-      <svg
-        viewBox="0 0 640 340"
-        preserveAspectRatio="xMidYMid slice"
-        aria-hidden="true"
-      >
-        <defs>
-          <pattern
-            id="hd-map-grid"
-            width="40"
-            height="40"
-            patternUnits="userSpaceOnUse"
-          >
-            <path
-              d="M40 0H0v40"
-              fill="none"
-              stroke="#dce8e7"
-              strokeWidth=".5"
-            />
-          </pattern>
-        </defs>
-        <rect width="640" height="340" fill="#eef4f1" />
-        <rect width="640" height="340" fill="url(#hd-map-grid)" />
-        <path
-          d="M0 280Q100 160 200 230T440 230T680 110"
-          fill="none"
-          stroke="#cfdee9"
-          strokeWidth="23"
-        />
-        <path
-          d="M-30 90 640 280M140 -30 440 370M-20 220 680 65M20 0 240 340M440 -30 270 370M560 -20 600 360"
-          fill="none"
-          stroke="#fff"
-          strokeWidth="11"
-        />
-        <path
-          d="M-30 90 640 280M140 -30 440 370M-20 220 680 65"
-          fill="none"
-          stroke="#e3c896"
-          strokeWidth="3"
-        />
-        <rect x="460" y="36" width="76" height="40" rx="12" fill="#d6e6d3" />
-        <rect x="68" y="130" width="77" height="48" rx="15" fill="#d6e6d3" />
-        <text x="285" y="52" fill="#778b8a" fontSize="15" fontWeight="600">
-          BINDURA
-        </text>
-        <text x="45" y="318" fill="#8b9b97" fontSize="11">
-          Illustrative layout · not geographic positioning
-        </text>
-        <g transform="translate(305 158)">
-          <rect x="-14" y="-14" width="28" height="28" rx="8" fill="#107e72" />
-          <path d="M-6 0H6M0-6V6" stroke="white" strokeWidth="3" />
-        </g>
-      </svg>
-      {incidents
-        .filter((i) => i.lat !== null)
-        .slice(0, 6)
-        .map((item, i) => (
-          <button
-            key={item.id}
-            className={`hd-map-pin ${item.status === "New" ? "hd-map-pin-new" : ""}`}
-            style={{
-              left: `${(points[i][0] / 640) * 100}%`,
-              top: `${(points[i][1] / 340) * 100}%`,
-            }}
-            onClick={() => onSelect(item.id)}
-            aria-label={`Open ${item.id} at ${item.location}`}
-          >
-            <Icon name="car" size={15} />
-          </button>
-        ))}
-      <span className="hd-map-label">
-        <span className="hd-dot" /> Hospital area · schematic
-      </span>
-    </div>
-  );
+export function MapView({ incidents }) {
+  const located = incidents.filter((item) => item.lat !== null);
+  return <div className="hd-activity-list">
+    {!located.length && <p>No reported GPS coordinates.</p>}
+    {located.map((item) => <div key={item.id} className="hd-activity-row">
+      <Icon name="pin" size={16} />
+      <div><strong>{item.code}</strong><p>{item.lat}, {item.lng}</p></div>
+      <a className="hd-text-link" target="_blank" rel="noreferrer"
+        href={`https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}`}>Open map</a>
+    </div>)}
+  </div>;
 }
 
 export function IncidentTable({ items }) {
@@ -246,7 +170,7 @@ export function IncidentTable({ items }) {
             items.map((i) => (
               <tr key={i.id}>
                 <td>
-                  <strong>{i.id}</strong>
+                  <strong>{i.code}</strong>
                   <small>{i.device}</small>
                 </td>
                 <td>
@@ -274,7 +198,7 @@ export function IncidentTable({ items }) {
                   <button
                     className="hd-row-link"
                     onClick={() => openIncident(i.id)}
-                    aria-label={`View details for ${i.id}`}
+                    aria-label={`View details for ${i.code}`}
                   >
                     View details <Icon name="arrow" size={14} />
                   </button>
@@ -342,180 +266,3 @@ export function ResponseCountdown({ incident, compact = false }) {
   );
 }
 
-// Mount the form only while an action is pending, so entered credentials are
-// discarded on cancel/success. They are never added to the incident or audit log.
-export function ResponseConfirmation() {
-  const { pendingResponse } = useHospital();
-  return pendingResponse ? (
-    <StaffConfirmationForm pending={pendingResponse} />
-  ) : null;
-}
-function StaffConfirmationForm({ pending }) {
-  const { confirmResponse, cancelResponse, operatorName } = useHospital();
-  const [staffId, setStaffId] = useState(
-    () =>
-      DEMO_STAFF.find(
-        (person) =>
-          person.name === operatorName &&
-          person.hospitalId === HOSPITAL.id &&
-          person.active,
-      )?.id || "",
-  );
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const dialog = useRef(null);
-  const first = useRef(null);
-  useEffect(() => {
-    const previous = document.activeElement;
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    first.current?.focus();
-    const keyboard = (event) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        cancelResponse();
-      }
-      if (event.key === "Tab") {
-        const nodes = dialog.current?.querySelectorAll(
-          "button:not(:disabled),input:not(:disabled),select:not(:disabled)",
-        );
-        if (!nodes?.length) return;
-        const head = nodes[0],
-          tail = nodes[nodes.length - 1];
-        if (event.shiftKey && document.activeElement === head) {
-          event.preventDefault();
-          tail.focus();
-        } else if (!event.shiftKey && document.activeElement === tail) {
-          event.preventDefault();
-          head.focus();
-        }
-      }
-    };
-    document.addEventListener("keydown", keyboard);
-    return () => {
-      document.removeEventListener("keydown", keyboard);
-      document.body.style.overflow = overflow;
-      previous?.focus();
-    };
-    // Only the mounted form owns its focus/keyboard lifecycle.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  async function submit(event) {
-    event.preventDefault();
-    if (busy) return;
-    setBusy(true);
-    setError("");
-    try {
-      const result = await confirmResponse(staffId, password);
-      if (!result.ok) setError(result.error);
-    } catch {
-      setError("Confirmation failed. Please try again.");
-    } finally {
-      setPassword("");
-      setBusy(false);
-    }
-  }
-  const action =
-    {
-      Acknowledged: "acknowledgment",
-      Accepted: "response acceptance",
-      Declined: "decline",
-      Closed: "closure",
-    }[pending.status] || "recorded action";
-  return (
-    <div className="hd-confirm-backdrop">
-      <section
-        ref={dialog}
-        className="hd-confirm-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="hd-confirm-title"
-        aria-describedby="hd-confirm-description"
-      >
-        <div className="hd-confirm-heading">
-          <span className="hd-stat-icon hd-teal">
-            <Icon name="shield" />
-          </span>
-          <button
-            className="hd-icon-button"
-            onClick={cancelResponse}
-            aria-label="Cancel response confirmation"
-            disabled={busy}
-          >
-            <Icon name="close" />
-          </button>
-        </div>
-        <h2 id="hd-confirm-title">Confirm {action}</h2>
-        <p id="hd-confirm-description">
-          Select who is performing this action for <strong>{pending.id}</strong>
-          . No response is recorded until confirmation succeeds.
-        </p>
-        <p className="hd-confirm-demo">
-          Demo only — use <code>DemoConfirm!2026</code>. Do not enter a real
-          account password. This fixture does not verify a real staff identity.
-        </p>
-        <form onSubmit={submit}>
-          <label htmlFor="hd-confirm-name">Staff member</label>
-          <select
-            ref={first}
-            id="hd-confirm-name"
-            value={staffId}
-            onChange={(event) => setStaffId(event.target.value)}
-            required
-            disabled={busy}
-          >
-            <option value="" disabled>
-              Select the person performing this action
-            </option>
-            {DEMO_STAFF.filter(
-              (person) => person.hospitalId === HOSPITAL.id && person.active,
-            ).map((person) => (
-              <option key={person.id} value={person.id}>
-                {person.name} — {person.role}
-              </option>
-            ))}
-          </select>
-          <label htmlFor="hd-confirm-password">Confirmation password</label>
-          <input
-            id="hd-confirm-password"
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-            autoComplete="off"
-            placeholder="Enter the demo confirmation password"
-            disabled={busy}
-            aria-describedby={error ? "hd-confirm-error" : undefined}
-          />
-          {error && (
-            <p className="hd-confirm-error" id="hd-confirm-error" role="alert">
-              {error}
-            </p>
-          )}
-          <p className="hd-footnote">
-            The acknowledgment countdown continues while this popup is open.
-            Passwords are never stored in the audit history or CSV.
-          </p>
-          <div className="hd-confirm-actions">
-            <button
-              type="button"
-              className="hd-button hd-button-secondary"
-              onClick={cancelResponse}
-              disabled={busy}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="hd-button hd-button-primary"
-              disabled={busy || !staffId || !password}
-            >
-              {busy ? "Confirming…" : "Confirm action"}
-            </button>
-          </div>
-        </form>
-      </section>
-    </div>
-  );
-}

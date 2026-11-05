@@ -1,5 +1,6 @@
-// Compatibility entry point: existing App.jsx imports can stay unchanged.
+import RequireRole from "../auth/RequireRole";
 import HospitalApp from "./HospitalApp";
+
 export default function HospitalDashboard(props) {
-  return <HospitalApp {...props} />;
+  return <RequireRole roles={["hospital_staff"]}><HospitalApp {...props} /></RequireRole>;
 }

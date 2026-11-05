@@ -1,114 +1,94 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import {
-  loadState,
-  verifyDemoStaff,
-  buildIncidentCsv,
-  seedIncidents,
-  HOSPITAL,
-  RESPONSE_WINDOW_MS,
-  escalateIncident,
-  expireIncident,
-  isAwaitingAcknowledgment,
-} from "./data";
+import { useAuth } from "../auth/useAuth";
+import { hospitalRequest, mapAlert } from "./hospitalApi";
 
 const HospitalContext = createContext(null);
+export const useHospital = () => useContext(HospitalContext);
 
-export function useHospital() {
-  const context = useContext(HospitalContext);
-  if (!context)
-    throw new Error("Hospital components require HospitalProvider.");
-  return context;
-}
-
-// Local prototype store. Replace these actions with authenticated FastAPI calls.
 export function HospitalProvider({ children }) {
-  const [initial] = useState(loadState);
-  const [incidents, setIncidents] = useState(initial.incidents);
-  const [motion, setMotion] = useState(initial.motion !== false);
+  const { session, profile, signOut } = useAuth();
+  const token = session?.access_token;
+  const [incidents, setIncidents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [feedError, setFeedError] = useState("");
+  const [lastSync, setLastSync] = useState(null);
+  const [motion, setMotion] = useState(true);
   const [notice, setNotice] = useState("");
-  const [pendingResponse, setPendingResponse] = useState(null);
-  const [operatorName, setOperatorName] = useState("");
-  const pendingResolver = useRef(null);
-  useEffect(
-    () => () => {
-      pendingResolver.current?.(false);
-    },
-    [],
-  );
-  // Always armed. sound reports browser audio readiness, not an on/off preference.
   const [sound, setSound] = useState(false);
-  const [clock, setClock] = useState(() => Date.now());
+  const [clock, setClock] = useState(Date.now);
   const audio = useRef(null);
   const activeTones = useRef(new Set());
+  const currentRequest = useRef(null);
   const navigate = useNavigate();
+  const toast = setNotice;
+  const request = useCallback((path, options) => hospitalRequest(token, path, options), [token]);
+
+  const refresh = useCallback(async () => {
+    currentRequest.current?.abort();
+    const controller = new AbortController();
+    currentRequest.current = controller;
+    try {
+      const result = await request("/api/hospital/alerts", { signal: controller.signal });
+      if (!Array.isArray(result)) throw new Error("Unexpected hospital alert list.");
+      if (controller.signal.aborted) return;
+      setIncidents(result.map(mapAlert).sort((a, b) => b.created - a.created));
+      setLastSync(Date.now());
+      setFeedError("");
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        if (error.status === 401 || error.status === 403) {
+          setIncidents([]);
+          setLastSync(null);
+        }
+        setFeedError(error.message || "Could not load hospital alerts.");
+      }
+    } finally {
+      if (currentRequest.current === controller) {
+        currentRequest.current = null;
+        setLoading(false);
+      }
+    }
+  }, [request]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(
-        "aiot-hospital-demo-v1",
-        JSON.stringify({ incidents, motion }),
-      );
-    } catch {
-      /* The UI can run without browser persistence. */
-    }
-  }, [incidents, motion]);
+    refresh();
+    const interval = setInterval(() => { if (!currentRequest.current) refresh(); }, 10000);
+    return () => {
+      clearInterval(interval);
+      currentRequest.current?.abort();
+      currentRequest.current = null;
+    };
+  }, [refresh]);
   useEffect(() => {
-    const id = setInterval(() => setClock(Date.now()), 1000);
-    return () => clearInterval(id);
+    const interval = setInterval(() => setClock(Date.now()), 1000);
+    return () => clearInterval(interval);
   }, []);
   useEffect(() => {
-    setIncidents((items) => {
-      let changed = false;
-      const next = items.map((incident) => {
-        const updated = expireIncident(incident, clock);
-        if (updated !== incident) changed = true;
-        return updated;
-      });
-      return changed ? next : items;
-    });
-  }, [clock]);
-  useEffect(() => {
     if (!notice) return;
-    const id = setTimeout(() => setNotice(""), 5000);
-    return () => clearTimeout(id);
+    const timeout = setTimeout(() => setNotice(""), 5000);
+    return () => clearTimeout(timeout);
   }, [notice]);
-  useEffect(
-    () => () => {
-      audio.current?.close();
-    },
-    [],
-  );
+  useEffect(() => () => {
+    if (audio.current && audio.current.state !== "closed") {
+      audio.current.onstatechange = null;
+      audio.current.close().catch(() => {});
+    }
+  }, []);
 
-  const toast = (message) => setNotice(message);
-  const openIncident = (id) =>
-    navigate(`/hospital/incidents/${encodeURIComponent(id)}`);
-  const newCount = incidents.filter((i) => i.status === "New").length;
+  const openIncident = (id) => navigate(`/hospital/incidents/${encodeURIComponent(id)}`);
+  const newCount = incidents.filter((item) => item.status === "New").length;
   const alarmActive = sound && newCount > 0;
-  const active = incidents.filter(
-    (i) =>
-      !["Closed", "Declined", "Escalated", "Escalation pending"].includes(
-        i.status,
-      ),
-  );
-  const history = incidents
-    .flatMap((i) => i.timeline.map((e) => ({ ...e, id: i.id })))
+  const active = incidents.filter((item) => ["New", "Acknowledged", "Accepted"].includes(item.status));
+  const hospitalName = incidents.find((item) => item.hospital?.name)?.hospital.name || "Assigned hospital";
+  const hospitalCode = incidents.find((item) => item.hospital?.code)?.hospital.code;
+  const history = incidents.flatMap((item) => [
+    [item.created, "Alert received"],
+    [item.acknowledgedAt, "Alert acknowledged"],
+    [item.respondedAt, item.declineReason ? "Response declined" : "Response recorded"],
+  ].filter(([at]) => Number.isFinite(at)).map(([at, text]) => ({ id: item.id, code: item.code, at, text })))
     .sort((a, b) => b.at - a.at);
-  const age = (timestamp) => {
-    const minutes = Math.max(0, Math.floor((clock - timestamp) / 60000));
-    return minutes < 1
-      ? "Just now"
-      : minutes < 60
-        ? `${minutes} min ago`
-        : `${Math.floor(minutes / 60)}h ${minutes % 60}m ago`;
-  };
+  const age = (at) => Number.isFinite(at) ? `${Math.max(0, Math.floor((clock - at) / 60000))} min ago` : "Time unavailable";
 
   const stopTones = useCallback(() => {
     for (const oscillator of activeTones.current) {
@@ -169,8 +149,7 @@ export function HospitalProvider({ children }) {
     };
   }, [sound, newCount, playTone, stopTones]);
 
-  // Automatically unlock audio on the first dashboard interaction. The Add
-  // demo alert click also counts; no separate Enable switch is required.
+  // Unlock browser audio on the first dashboard interaction.
   useEffect(() => {
     let disposed = false;
     const activate = async (event) => {
@@ -211,196 +190,27 @@ export function HospitalProvider({ children }) {
     }
   }
 
-  function updateIncident(id, status, text) {
-    if (pendingResolver.current) return Promise.resolve(false);
-    return new Promise((resolve) => {
-      pendingResolver.current = resolve;
-      setPendingResponse({ id, status, text });
-    });
-  }
-
-  function cancelResponse() {
-    pendingResolver.current?.(false);
-    pendingResolver.current = null;
-    setPendingResponse(null);
-  }
-
-  async function confirmResponse(name, password) {
-    if (!pendingResponse)
-      return { ok: false, error: "No response is awaiting confirmation." };
-    let actor;
-    try {
-      actor = verifyDemoStaff(name, password);
-    } catch (error) {
-      return { ok: false, error: error.message };
-    }
-    const succeeded = applyIncidentUpdate(
-      pendingResponse.id,
-      pendingResponse.status,
-      pendingResponse.text,
-      actor,
-    );
-    if (succeeded) setOperatorName(actor.actorName);
-    pendingResolver.current?.(succeeded);
-    pendingResolver.current = null;
-    setPendingResponse(null);
-    return { ok: true };
-  }
-
-  function applyIncidentUpdate(id, status, text, actor) {
-    const allowed = {
-      New: ["Acknowledged"],
-      Acknowledged: ["Accepted", "Declined"],
-      Accepted: ["Closed"],
-    };
-    const current = incidents.find((i) => i.id === id);
-    if (!current || (status && !allowed[current.status]?.includes(status))) {
-      toast("This response is not available for the current incident status.");
-      return false;
-    }
-    const at = Date.now();
-    if (
-      isAwaitingAcknowledgment(current) &&
-      Number.isFinite(current.responseDeadline) &&
-      at >= current.responseDeadline
-    ) {
-      setIncidents((items) =>
-        items.map((i) => (i.id === id ? expireIncident(i, at) : i)),
-      );
-      toast(
-        "The response deadline has passed. This incident has entered escalation.",
-      );
-      return false;
-    }
-    setIncidents((items) =>
-      items.map((i) => {
-        if (i.id !== id || (status && !allowed[i.status]?.includes(status)))
-          return i;
-        const updated = {
-          ...i,
-          status: status || i.status,
-          responseDeadline:
-            status === "Acknowledged" ? null : i.responseDeadline,
-          acknowledgedAt: status === "Acknowledged" ? at : i.acknowledgedAt,
-          acknowledgedBy:
-            status === "Acknowledged" ? actor.actorName : i.acknowledgedBy,
-          acceptedAt: status === "Accepted" ? at : i.acceptedAt,
-          acceptedBy: status === "Accepted" ? actor.actorName : i.acceptedBy,
-          declinedAt: status === "Declined" ? at : i.declinedAt,
-          declinedBy: status === "Declined" ? actor.actorName : i.declinedBy,
-          closedAt: status === "Closed" ? at : i.closedAt,
-          closedBy: status === "Closed" ? actor.actorName : i.closedBy,
-          notes:
-            !status && text.startsWith("Note:")
-              ? [
-                  ...(i.notes || []),
-                  { text: text.slice(5).trim(), at, user: actor.actorName },
-                ]
-              : i.notes,
-
-          timeline: [
-            ...i.timeline,
-            {
-              text,
-              at,
-              user: actor.actorName,
-              actorId: actor.actorId,
-              hospitalId: HOSPITAL.id,
-              action: status || "Note or review report",
-              confirmationMethod: actor.confirmationMethod,
-              identityVerified: actor.identityVerified,
-            },
-          ],
-        };
-        return status === "Declined"
-          ? escalateIncident(updated, "decline", text, at)
-          : updated;
-      }),
-    );
-    toast(text);
-    return true;
-  }
-
-  function addDemo() {
-    const at = Date.now();
-    setClock(at);
-    const id = `INC-D${at.toString().slice(-7)}`;
-    setIncidents((items) => [
-      {
-        ...seedIncidents()[0],
-        id,
-        created: at,
-        occurredAt: at,
-        occurredAtSource: "simulated",
-        assignedAt: at,
-        responseDeadline: at + RESPONSE_WINDOW_MS,
-        acknowledgedAt: null,
-        escalation: null,
-        attemptedHospitalIds: [HOSPITAL.id],
-        status: "New",
-        notes: [],
-        timeline: [
-          {
-            text: "Demo alert received by this hospital",
-            at,
-            user: "Demo generator",
-          },
-        ],
-      },
-      ...items,
-    ]);
-    toast("A simulated alert was added. No external notification was sent.");
-  }
-
-  function resetDemo() {
-    if (window.confirm("Reset local demo incidents and history?")) {
-      setIncidents(seedIncidents());
-      toast("Demo records restored.");
-    }
-  }
-
   function exportCsv() {
-    const csv = buildIncidentCsv(incidents);
-    const url = URL.createObjectURL(
-      new Blob([csv], { type: "text/csv;charset=utf-8;" }),
-    );
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "hospital-demo-incidents.csv";
-    anchor.click();
+    const escape = (value) => {
+      const raw = String(value ?? "");
+      const safe = /^[\s]*[=+@-]|^[\t\r\n]/.test(raw) && typeof value !== "number" ? "'" + raw : raw;
+      return '"' + safe.replaceAll('"', '""') + '"';
+    };
+    const rows = [["Incident", "Alert status", "Received UTC", "Device", "Latitude", "Longitude"],
+      ...incidents.map((item) => [item.code, item.status,
+        Number.isFinite(item.created) ? new Date(item.created).toISOString() : "",
+        item.device, item.lat, item.lng])];
+    const url = URL.createObjectURL(new Blob([rows.map((row) => row.map(escape).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "hospital-incidents.csv";
+    link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    toast("Demo incident report downloaded.");
   }
 
-  return (
-    <HospitalContext.Provider
-      value={{
-        incidents,
-        pendingResponse,
-        operatorName,
-        confirmResponse,
-        cancelResponse,
-        motion,
-        setMotion,
-        notice,
-        setNotice,
-        sound,
-        clock,
-        newCount,
-        alarmActive,
-        active,
-        history,
-        age,
-        toast,
-        openIncident,
-        enableSound,
-        updateIncident,
-        addDemo,
-        resetDemo,
-        exportCsv,
-      }}
-    >
-      {children}
-    </HospitalContext.Provider>
-  );
+  return <HospitalContext.Provider value={{ incidents, loading, feedError, lastSync, refresh, request,
+    hospitalName, hospitalCode, profile, signOut, motion, setMotion, notice, setNotice, sound, clock,
+    newCount, alarmActive, active, history, age, toast, openIncident, enableSound, exportCsv }}>
+    {children}
+  </HospitalContext.Provider>;
 }

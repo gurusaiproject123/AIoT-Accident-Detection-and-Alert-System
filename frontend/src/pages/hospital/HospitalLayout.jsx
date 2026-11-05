@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router";
 import { useHospital } from "./HospitalContext";
-import { HOSPITAL, NAV, date, isAwaitingAcknowledgment } from "./data";
-import { Icon, ResponseCountdown, ResponseConfirmation } from "./components/ui";
+import { NAV, date, isAwaitingAcknowledgment } from "./data";
+import { Icon, ResponseCountdown } from "./components/ui";
 import Background from "./components/Background";
 
 export default function HospitalLayout({ embedded = false }) {
   const {
-    motion,
+    motion, profile, signOut, hospitalName, hospitalCode, loading, feedError, lastSync, refresh,
     sound,
     enableSound,
     newCount,
@@ -76,8 +76,8 @@ export default function HospitalLayout({ embedded = false }) {
             <Icon name="hospital" />
           </span>
           <div>
-            <strong>{HOSPITAL.name}</strong>
-            <small>{HOSPITAL.id} · Hospital staff</small>
+            <strong>{hospitalName}</strong>
+            <small>{hospitalCode ? hospitalCode + " · " : ""}Hospital staff</small>
           </div>
           <Icon name="shield" size={15} />
         </div>
@@ -100,15 +100,15 @@ export default function HospitalLayout({ embedded = false }) {
           <div className="hd-sidebar-note">
             <Icon name="shield" />
             <strong>Your hospital. Your incidents.</strong>
-            <p>This workspace shows incidents assigned to {HOSPITAL.name}.</p>
+            <p>This workspace shows incidents assigned to {hospitalName}.</p>
           </div>
           <div className="hd-user">
-            <span className="hd-avatar">BH</span>
+            <span className="hd-avatar">{profile?.name?.slice(0, 2).toUpperCase() || "HS"}</span>
             <div>
-              <strong>Response operator</strong>
-              <small>Demo hospital account</small>
+              <strong>{profile?.name || "Response operator"}</strong>
+              <small>Verified hospital staff</small>
             </div>
-            <span className="hd-user-dot" />
+            <button type="button" className="hd-text-link" onClick={async () => { try { await signOut(); } catch (error) { setNotice(error.message); } }}>Sign out</button>
           </div>
         </div>
       </aside>
@@ -132,7 +132,7 @@ export default function HospitalLayout({ embedded = false }) {
           </div>
           <div className="hd-topbar-right">
             <span className="hd-demo-label">
-              <span /> DEMO WORKSPACE
+              <span /> HOSPITAL WORKSPACE
             </span>
             <button
               className={`hd-sound-button ${sound ? "is-enabled" : ""}`}
@@ -150,14 +150,14 @@ export default function HospitalLayout({ embedded = false }) {
               <Icon name="bell" />
               {newCount > 0 && <span />}
             </Link>
-            <span className="hd-avatar hd-avatar-small">BH</span>
+            <span className="hd-avatar hd-avatar-small">{profile?.name?.slice(0, 2).toUpperCase() || "HS"}</span>
           </div>
         </header>
         <main id="hd-content" className="hd-main">
           <div className="hd-page-heading">
             <div>
               <p className="hd-eyebrow">
-                {HOSPITAL.name.toUpperCase()} / EMERGENCY RESPONSE
+                {hospitalName.toUpperCase()} / EMERGENCY RESPONSE
               </p>
               <h1 ref={heading} tabIndex="-1">
                 {title}
@@ -208,14 +208,13 @@ export default function HospitalLayout({ embedded = false }) {
               <div>
                 <strong>Acknowledgment countdown</strong>
                 <p>
-                  Acknowledge within 3 minutes. Acknowledgment stops both the
-                  alarm and countdown.
+                  Acknowledge before the deadline shown for each alert.
                 </p>
               </div>
               <div className="hd-deadline-items">
                 {incidents.filter(isAwaitingAcknowledgment).map((i) => (
                   <Link key={i.id} to={`/hospital/incidents/${i.id}`}>
-                    <span>{i.id}</span>
+                    <span>{i.code}</span>
                     <ResponseCountdown incident={i} />
                   </Link>
                 ))}
@@ -223,18 +222,21 @@ export default function HospitalLayout({ embedded = false }) {
             </section>
           )}
           <div key={pathname}>
-            <Outlet />
+            {loading && <p role="status">Loading assigned alerts…</p>}
+            {feedError && <p role="alert">Could not refresh alerts: {feedError}{" "}
+              {lastSync && "Showing the last successful update. "}
+              <button className="hd-text-link" onClick={refresh}>Retry</button></p>}
+            {!loading && (!feedError || lastSync) && <Outlet />}
           </div>{" "}
           <footer className="hd-footer">
             <span>
               <Icon name="shield" size={13} /> AIoT Accident Detection & Alert
               System
             </span>
-            <span>Demo data · No live emergency service connection</span>
+            <span>Academic prototype · hospital records from the backend</span>
           </footer>
         </main>
       </div>
-      <ResponseConfirmation />
       {notice && (
         <div className="hd-toast" role="status">
           <Icon name="check" size={18} />

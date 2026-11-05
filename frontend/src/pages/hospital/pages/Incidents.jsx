@@ -1,16 +1,15 @@
 import { useState } from "react";
 import { useHospital } from "../HospitalContext";
-import { HOSPITAL } from "../data";
 import { Icon, IncidentTable } from "../components/ui";
 
 export default function Incidents() {
-  const { incidents, addDemo } = useHospital();
+  const { incidents, refresh } = useHospital();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
   const visible = incidents.filter(
     (i) =>
       (filter === "All" || i.status === filter) &&
-      `${i.id} ${i.device} ${i.location}`
+      `${i.code} ${i.device} ${i.location}`
         .toLowerCase()
         .includes(search.toLowerCase()),
   );
@@ -22,10 +21,10 @@ export default function Incidents() {
             Assigned incidents{" "}
             <span className="hd-count">{incidents.length}</span>
           </h2>
-          <p>Demo records scoped to {HOSPITAL.id}.</p>
+          <p>Alerts assigned to your hospital.</p>
         </div>
-        <button className="hd-button hd-button-primary" onClick={addDemo}>
-          <Icon name="bell" size={16} /> Add demo alert
+        <button className="hd-button hd-button-primary" onClick={refresh}>
+          Refresh alerts
         </button>
       </div>
       <div className="hd-toolbar">
@@ -51,8 +50,8 @@ export default function Incidents() {
               "Acknowledged",
               "Accepted",
               "Declined",
-              "Escalated",
-              "Escalation pending",
+              "Timed out",
+              "Withdrawn",
               "Closed",
             ].map((s) => (
               <option key={s}>{s}</option>

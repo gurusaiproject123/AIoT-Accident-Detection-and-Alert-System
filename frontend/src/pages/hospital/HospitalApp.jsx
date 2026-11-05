@@ -1,5 +1,6 @@
 import { Link, Navigate, Route, Routes } from "react-router";
 import { HospitalProvider } from "./HospitalContext";
+import { useAuth } from "../auth/useAuth";
 import HospitalLayout from "./HospitalLayout";
 import Overview from "./pages/Overview";
 import Incidents from "./pages/Incidents";
@@ -11,8 +12,9 @@ import "./HospitalDashboard.css";
 
 // Mount once under your existing BrowserRouter at /hospital/*.
 export default function HospitalApp({ embedded = false }) {
+  const { profile } = useAuth();
   return (
-    <HospitalProvider>
+    <HospitalProvider key={`${profile?.id}:${profile?.hospitalId}`}>
       <Routes>
         <Route element={<HospitalLayout embedded={embedded} />}>
           <Route index element={<Overview />} />
