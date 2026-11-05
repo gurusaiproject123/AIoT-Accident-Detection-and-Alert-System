@@ -31,7 +31,7 @@ export default function SuperuserLayout({ embedded = false }) {
     now,
     toasts,
     dismissToast,
-    profile, signOut, loading, errors, refresh,
+    profile, signOut, pendingSections, errors, refresh,
     preferences,
   } = useSuperuser();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -52,6 +52,11 @@ export default function SuperuserLayout({ embedded = false }) {
         incident.cancellation.deadline ? Date.parse(incident.cancellation.deadline) : new Date(incident.detectedAt).getTime() + incident.cancellation.windowSeconds * 1000;
       return { incident, remaining: Math.max(0, Math.ceil((deadline - now) / 1000)) };
     });
+
+  const section = pathname.replace(BASE_PATH, "").split("/").filter(Boolean)[0] ?? "overview";
+  const source = section === "activity" ? "audit" : section;
+  const detail = section === "incidents" && pathname.replace(BASE_PATH, "").split("/").filter(Boolean).length > 1;
+  const loading = !detail && pendingSections.includes(source);
 
   const animations = preferences?.animations !== false;
 
@@ -196,13 +201,14 @@ export default function SuperuserLayout({ embedded = false }) {
         )}
 
         <main className="su-content" id="superuser-content">
-          {loading && <p role="status">Loading dashboard…</p>}
+          {loading && <p role="status">Loading {section}…</p>}
+          {!loading && pendingSections.length > 0 && <p role="status">Other dashboard data is still loading…</p>}
           {Object.keys(errors).length > 0 && <div role="alert">{Object.entries(errors).map(([section, message]) => <p key={section}>{section}: {message}</p>)}</div>}
-          {!loading && <Outlet />}
+          <Outlet />
         </main>
 
         <footer className="su-footer">
-          Academic prototype · administrative records are loaded from the backend.
+          <small>Copyright © 2026 AIoT Response</small>
         </footer>
       </div>
 

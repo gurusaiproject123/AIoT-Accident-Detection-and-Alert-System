@@ -145,9 +145,6 @@ export default function Users() {
             </table>
           </div>
         )}
-        <p className="su-table-foot">
-          Email/password sign-in is managed by Supabase Auth. Account changes are saved by FastAPI.
-        </p>
       </Panel>
 
       {editing && (

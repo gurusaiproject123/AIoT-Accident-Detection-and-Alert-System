@@ -3,6 +3,7 @@ import { useAuth } from "../auth/useAuth";
 import { SuperuserContext } from "./useSuperuser";
 import * as api from "./api";
 
+const sections = ["overview","incidents","devices","hospitals","users","owners","vehicles","audit"];
 const empty = {incidents: [], devices: [], hospitals: [], users: [], owners: [], audit: []};
 const incidentView = (r, timeline = []) => ({
   id:r.id, code:r.code, deviceId:r.device_id, detectedAt:r.detected_at,
@@ -23,20 +24,27 @@ export default function SuperuserProvider({ children }) {
   const [data, setData] = useState(empty);
   const [overview, setOverview] = useState({});
   const [errors, setErrors] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [pendingSections, setPendingSections] = useState(sections);
   const [now, setNow] = useState(Date.now);
   const [preferences, setPreferences] = useState({animations:true});
   const [toasts, setToasts] = useState([]);
   const sequence = useRef(0);
   const writing = useRef(false);
+  const activeRefresh = useRef(null);
   const [revision, setRevision] = useState(0);
   const dismissToast = (id) => setToasts(list=>list.filter(t=>t.id!==id));
   const notify = (message,tone="green") => setToasts(list=>[...list.slice(-3),{id:crypto.randomUUID(),message,tone}]);
 
   const refresh = useCallback(async (signal) => {
     const request = ++sequence.current;
-    const timeout = AbortSignal.timeout(20000);
-    signal = signal ? AbortSignal.any([signal, timeout]) : timeout;
+    activeRefresh.current?.abort();
+    const controller = new AbortController();
+    activeRefresh.current = controller;
+    const signals = [controller.signal, AbortSignal.timeout(20000)];
+    if (signal) signals.push(signal);
+    signal = AbortSignal.any(signals);
+    setPendingSections(sections);
+    setErrors({});
     const jobs = {
       overview:api.adminRequest("/api/admin/overview",token,{signal}),
       incidents:api.getAll("/api/admin/incidents",token,signal),
@@ -47,45 +55,49 @@ export default function SuperuserProvider({ children }) {
       vehicles:api.getAll("/api/admin/vehicles",token,signal),
       audit:api.getAll("/api/admin/audit",token,signal),
     };
-    const entries = Object.entries(jobs);
-    const settled = await Promise.allSettled(entries.map(([,job])=>job));
-    if (request !== sequence.current) return;
     const rows = {};
-    const issues = {};
-    settled.forEach((item,i)=>{
-      const key = entries[i][0];
-      if(item.status==="fulfilled") rows[key]=item.value;
-      else issues[key]=item.reason?.message ?? "Request failed.";
-    });
-    if (rows.overview) setOverview(rows.overview);
-    setData(previous=>{
-      const next = {...previous};
-      if(rows.incidents) next.incidents=rows.incidents.map(r=>incidentView(r));
-      if(rows.devices) next.devices=rows.devices.map(r=>({id:r.id,code:r.device_code,status:r.status,
-        firmware:r.firmware_version,gps:r.gps_status,lastSeen:r.last_seen_at,lat:r.last_latitude,lng:r.last_longitude,
-        vehicle:rows.vehicles?.find(v=>v.id===r.vehicle_id)?.registration ?? (r.vehicle_id ? "Linked vehicle" : "Unassigned"),
-        vehicleModel:rows.vehicles?.find(v=>v.id===r.vehicle_id)?.model}));
-      if(rows.hospitals) next.hospitals=rows.hospitals.map(r=>({id:r.id,code:r.code,name:r.name,city:r.city,active:r.is_active,
-        phone:r.phone??"",email:r.email??"",address:r.address??"",lat:r.latitude,lng:r.longitude,registeredAt:r.created_at}));
-      if(rows.owners && rows.vehicles) next.owners=rows.owners.map(r=>{
-        const cars=rows.vehicles.filter(v=>v.owner_id===r.id);
-        return {id:r.id,name:r.full_name,userId:r.user_id,vehicleIds:cars.map(v=>v.id),registrations:cars.map(v=>v.registration)};
-      });
-      if(rows.users) next.users=rows.users.map(r=>({id:r.id,name:r.full_name,email:r.email??"",role:r.role,status:r.status,
-        hospitalId:r.hospital_id,ownerId:next.owners.find(o=>o.userId===r.id)?.id,lastSignIn:r.last_sign_in_at}));
-      if(rows.audit) next.audit=rows.audit.map(r=>({id:r.code??r.id,at:r.created_at,actor:r.actor_label,role:r.actor_role,
-        category:r.category,action:r.action,target:r.target_label??r.target_id,detail:r.detail}));
-      return next;
-    });
-    setErrors(issues);
-    setLoading(false);
+    await Promise.all(Object.entries(jobs).map(async ([key, job]) => {
+      try {
+        const value = await job;
+        if (request !== sequence.current) return;
+        rows[key] = value;
+        // Capture a snapshot so queued React updates see consistent data.
+        const available = {...rows};
+        if (key === "overview") setOverview(value);
+        setData(previous=>{
+          const next = {...previous};
+          if(key === "incidents") next.incidents=available.incidents.map(r=>incidentView(r));
+          if(["devices","vehicles"].includes(key) && available.devices) next.devices=available.devices.map(r=>({id:r.id,code:r.device_code,status:r.status,
+            firmware:r.firmware_version,gps:r.gps_status,lastSeen:r.last_seen_at,lat:r.last_latitude,lng:r.last_longitude,
+            vehicle:available.vehicles?.find(v=>v.id===r.vehicle_id)?.registration ?? (r.vehicle_id ? "Linked vehicle" : "Unassigned"),
+            vehicleModel:available.vehicles?.find(v=>v.id===r.vehicle_id)?.model}));
+          if(key === "hospitals") next.hospitals=available.hospitals.map(r=>({id:r.id,code:r.code,name:r.name,city:r.city,active:r.is_active,
+            phone:r.phone??"",email:r.email??"",address:r.address??"",lat:r.latitude,lng:r.longitude,registeredAt:r.created_at}));
+          if(["owners","vehicles"].includes(key) && available.owners && available.vehicles) next.owners=available.owners.map(r=>{
+            const cars=available.vehicles.filter(v=>v.owner_id===r.id);
+            return {id:r.id,name:r.full_name,userId:r.user_id,vehicleIds:cars.map(v=>v.id),registrations:cars.map(v=>v.registration)};
+          });
+          if(["users","owners","vehicles"].includes(key) && available.users) next.users=available.users.map(r=>({id:r.id,name:r.full_name,email:r.email??"",role:r.role,status:r.status,
+            hospitalId:r.hospital_id,ownerId:next.owners.find(o=>o.userId===r.id)?.id,lastSignIn:r.last_sign_in_at}));
+          if(key === "audit") next.audit=available.audit.map(r=>({id:r.code??r.id,at:r.created_at,actor:r.actor_label,role:r.actor_role,
+            category:r.category,action:r.action,target:r.target_label??r.target_id,detail:r.detail}));
+          return next;
+        });
+      } catch (error) {
+        if (request !== sequence.current) return;
+        setErrors(previous => ({...previous, [key]: error.name === "TimeoutError"
+          ? "Request timed out. Try refreshing." : error.message ?? "Request failed."}));
+      } finally {
+        if (request === sequence.current) setPendingSections(previous => previous.filter(section => section !== key));
+      }
+    }));
   },[token]);
 
   useEffect(()=>{
     const controller=new AbortController();
     void refresh(controller.signal);
     const clock=setInterval(()=>setNow(Date.now()),1000);
-    return ()=>{controller.abort(); ++sequence.current; clearInterval(clock);};
+    return ()=>{++sequence.current; controller.abort(); activeRefresh.current?.abort(); clearInterval(clock);};
   },[refresh]);
 
   const getDetail = useCallback(async (id,signal)=>{
@@ -103,7 +115,7 @@ export default function SuperuserProvider({ children }) {
       await action();
       notify(message);
       setRevision(v=>v+1);
-      await refresh();
+      void refresh();
       return {ok:true};
     } catch(error) {
       notify(error.message,"red");
@@ -127,16 +139,16 @@ export default function SuperuserProvider({ children }) {
   const toggleUser = (id) => write(()=>api.adminRequest(`/api/admin/users/${encodeURIComponent(id)}/status`,token,{
     method:"PATCH",body:JSON.stringify({status:data.users.find(u=>u.id===id).status==="active"?"suspended":"active"})}),"Account status updated.");
   const stats = {
-    totalIncidents:overview.total_incidents ?? data.incidents.length,
+    totalIncidents:overview.total_incidents ?? (pendingSections.includes("incidents") || errors.incidents ? "—" : data.incidents.length),
     openIncidents:overview.open_incidents ?? data.incidents.filter(i=>!["closed","cancelled"].includes(i.status)).length,
     pendingAlerts:overview.pending_alerts ?? overview.pending_notifications ?? "—",
-    onlineDevices:overview.online_devices ?? data.devices.filter(d=>d.status==="online").length,
-    totalDevices:overview.total_devices ?? data.devices.length,
-    activeHospitals:overview.active_hospitals ?? data.hospitals.filter(h=>h.active).length,
-    totalHospitals:overview.total_hospitals ?? data.hospitals.length,
+    onlineDevices:overview.online_devices ?? (pendingSections.includes("devices") || errors.devices ? "—" : data.devices.filter(d=>d.status==="online").length),
+    totalDevices:overview.total_devices ?? (pendingSections.includes("devices") || errors.devices ? "—" : data.devices.length),
+    activeHospitals:overview.active_hospitals ?? (pendingSections.includes("hospitals") || errors.hospitals ? "—" : data.hospitals.filter(h=>h.active).length),
+    totalHospitals:overview.total_hospitals ?? (pendingSections.includes("hospitals") || errors.hospitals ? "—" : data.hospitals.length),
   };
   return <SuperuserContext.Provider value={{
-    ...data,now,stats,loading,errors,refresh:()=>refresh(),getDetail,revision,
+    ...data,now,stats,pendingSections,errors,refresh:()=>refresh(),getDetail,revision,
     profile, signOut:()=>signOut().catch(e=>notify(e.message,"red")),
     hospitalById:Object.fromEntries(data.hospitals.map(h=>[h.id,h])),
     deviceById:Object.fromEntries(data.devices.map(d=>[d.id,d])),

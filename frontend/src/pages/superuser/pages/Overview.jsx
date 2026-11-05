@@ -86,7 +86,7 @@ export default function Overview() {
               Manage hospitals
             </Link>
           </div>
-          <small className="su-hero-note">Academic prototype · connected to FastAPI</small>
+         
         </div>
         <div className="su-hero-visual">
           <PulseRing alert={isAlerting} animated={preferences?.animations !== false} />

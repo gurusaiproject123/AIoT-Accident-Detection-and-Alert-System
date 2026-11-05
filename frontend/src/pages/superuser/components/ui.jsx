@@ -153,24 +153,34 @@ export function DetailList({ items }) {
 export function Modal({ title, subtitle, onClose, children, footer, size = "md" }) {
   const titleId = useId();
   const dialogRef = useRef(null);
+  const closeRef = useRef(onClose);
+
+  // Keep Escape connected to the latest handler without resetting focus.
+  useEffect(() => {
+    closeRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     const previous = document.activeElement;
     const node = dialogRef.current;
-    const focusable = node?.querySelector("input, select, textarea, button");
-    focusable?.focus();
+    const field = node?.querySelector(
+      'input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled])',
+    );
+    (field ?? node)?.focus({ preventScroll: true });
 
     const onKey = (event) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape" && !event.defaultPrevented) {
+        closeRef.current();
+      }
     };
     document.addEventListener("keydown", onKey);
     document.body.classList.add("su-modal-open");
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.classList.remove("su-modal-open");
-      previous?.focus?.();
+      if (previous?.isConnected) previous.focus?.({ preventScroll: true });
     };
-  }, [onClose]);
+  }, []);
 
   return (
     <div className="su-modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -178,6 +188,7 @@ export function Modal({ title, subtitle, onClose, children, footer, size = "md" 
         ref={dialogRef}
         className={`su-modal su-modal-${size}`}
         role="dialog"
+        tabIndex={-1}
         aria-modal="true"
         aria-labelledby={titleId}
       >
