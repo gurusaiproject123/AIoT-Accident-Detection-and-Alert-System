@@ -4,13 +4,8 @@ import Login from "./pages/auth/Login";
 import RequireRole from "./pages/auth/RequireRole";
 import { homeForProfile } from "./pages/auth/accountRules";
 import { useAuth } from "./pages/auth/useAuth";
+import SuperuserDashboard from "./pages/superuser/SuperuserDashboard";
 import "./App.css";
-
-const pages = [
-  { path: "/hospital", role: "hospital_staff", title: "Hospital Dashboard" },
-  { path: "/superuser", role: "superuser", title: "Superuser Dashboard" },
-  { path: "/vehicle", role: "car_owner", title: "Vehicle Controls" },
-];
 
 function Workspace({ title }) {
   const { profile, signOut } = useAuth();
@@ -20,6 +15,7 @@ function Workspace({ title }) {
   async function handleSignOut() {
     setPending(true);
     setError("");
+
     try {
       await signOut();
     } catch (err) {
@@ -39,11 +35,12 @@ function Workspace({ title }) {
         </button>
         {error && <p role="alert">{error}</p>}
       </aside>
+
       <main className="main-content">
         <section className="page-panel">
           <h1>{title}</h1>
           <p>Signed in as {profile.name || profile.role}.</p>
-          <p>Your account is verified. This branch contains the sign-in page and role routing; dashboard content is added from the corresponding frontend branch.</p>
+          <p>Your account is verified. This dashboard is still being integrated.</p>
         </section>
       </main>
     </div>
@@ -52,7 +49,11 @@ function Workspace({ title }) {
 
 function Home() {
   const { profile, loading } = useAuth();
-  if (loading) return <p role="status">Verifying account access…</p>;
+
+  if (loading) {
+    return <p role="status">Verifying account access…</p>;
+  }
+
   return <Navigate to={homeForProfile(profile)} replace />;
 }
 
@@ -61,13 +62,34 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
-        {pages.map(({ path, role, title }) => (
-          <Route key={path} path={path + "/*"} element={
-            <RequireRole roles={[role]}>
-              <Workspace title={title} />
+
+        <Route
+          path="/superuser/*"
+          element={
+            <RequireRole roles={["superuser"]}>
+              <SuperuserDashboard />
             </RequireRole>
-          } />
-        ))}
+          }
+        />
+
+        <Route
+          path="/hospital/*"
+          element={
+            <RequireRole roles={["hospital_staff"]}>
+              <Workspace title="Hospital Dashboard" />
+            </RequireRole>
+          }
+        />
+
+        <Route
+          path="/vehicle/*"
+          element={
+            <RequireRole roles={["car_owner"]}>
+              <Workspace title="Vehicle Controls" />
+            </RequireRole>
+          }
+        />
+
         <Route path="*" element={<Home />} />
       </Routes>
     </BrowserRouter>
