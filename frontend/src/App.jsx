@@ -1,115 +1,96 @@
-import {
-  BrowserRouter,
-  Navigate,
-  NavLink,
-  Outlet,
-  Route,
-  Routes,
-} from "react-router";
+import { useState } from "react";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router";
+import Login from "./pages/auth/Login";
+import RequireRole from "./pages/auth/RequireRole";
+import { homeForProfile } from "./pages/auth/accountRules";
+import { useAuth } from "./pages/auth/useAuth";
 import SuperuserDashboard from "./pages/superuser/SuperuserDashboard";
 import "./App.css";
 
-const pages = [
-  {
-    path: "/hospital",
-    title: "Hospital Dashboard",
-    description:
-      "Hospital alerts, incident locations and response history will appear here.",
-  },
-  {
-    path: "/superuser",
-    title: "Superuser Dashboard",
-    description:
-      "System incidents, hospitals, users and device monitoring will appear here.",
-  },
-  {
-    path: "/vehicle",
-    title: "Vehicle Controls",
-    description:
-      "Cellphone driving controls and ESP32 connection status will appear here.",
-  },
-  {
-    path: "/login",
-    title: "Login",
-    description:
-      "Hospital staff and administrators will sign in here.",
-  },
-];
+function Workspace({ title }) {
+  const { profile, signOut } = useAuth();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
 
-/* Pages that are still placeholders render inside the shared layout. */
-const placeholderPages = pages.filter((page) => page.path !== "/superuser");
+  async function handleSignOut() {
+    setPending(true);
+    setError("");
 
-function SharedLayout() {
+    try {
+      await signOut();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <div className="app-layout">
       <aside className="sidebar">
         <h2>AI GURUS</h2>
         <p>Accident Detection System</p>
-
-        <nav aria-label="Main navigation">
-          {pages.map((page) => (
-            <NavLink
-              key={page.path}
-              to={page.path}
-              className={({ isActive }) =>
-                isActive ? "nav-link active" : "nav-link"
-              }
-            >
-              {page.title}
-            </NavLink>
-          ))}
-        </nav>
+        <button type="button" onClick={handleSignOut} disabled={pending}>
+          {pending ? "Signing out…" : "Sign out"}
+        </button>
+        {error && <p role="alert">{error}</p>}
       </aside>
 
       <main className="main-content">
-        <header>
-          <h1>AIoT Accident Detection and Alert System</h1>
-          <p className="preview-notice">
-            Development preview - authentication, backend and
-            vehicle connections are not configured yet.
-          </p>
-        </header>
-
-        <Outlet />
+        <section className="page-panel">
+          <h1>{title}</h1>
+          <p>Signed in as {profile.name || profile.role}.</p>
+          <p>Your account is verified. This dashboard is still being integrated.</p>
+        </section>
       </main>
     </div>
   );
+}
+
+function Home() {
+  const { profile, loading } = useAuth();
+
+  if (loading) {
+    return <p role="status">Verifying account access…</p>;
+  }
+
+  return <Navigate to={homeForProfile(profile)} replace />;
 }
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* The superuser module has its own sidebar and header, so it is
-            rendered outside the shared layout to avoid duplicate navigation. */}
-        <Route path="/superuser/*" element={<SuperuserDashboard />} />
+        <Route path="/login" element={<Login />} />
 
-        <Route element={<SharedLayout />}>
-          <Route path="/" element={<Navigate to="/hospital" replace />} />
+        <Route
+          path="/superuser/*"
+          element={
+            <RequireRole roles={["superuser"]}>
+              <SuperuserDashboard />
+            </RequireRole>
+          }
+        />
 
-          {placeholderPages.map((page) => (
-            <Route
-              key={page.path}
-              path={page.path}
-              element={
-                <section className="page-panel">
-                  <h2>{page.title}</h2>
-                  <p>{page.description}</p>
-                </section>
-              }
-            />
-          ))}
+        <Route
+          path="/hospital/*"
+          element={
+            <RequireRole roles={["hospital_staff"]}>
+              <Workspace title="Hospital Dashboard" />
+            </RequireRole>
+          }
+        />
 
-          <Route
-            path="*"
-            element={
-              <section className="page-panel">
-                <h2>Page not found</h2>
-                <p>Select a page from the navigation.</p>
-              </section>
-            }
-          />
-        </Route>
+        <Route
+          path="/vehicle/*"
+          element={
+            <RequireRole roles={["car_owner"]}>
+              <Workspace title="Vehicle Controls" />
+            </RequireRole>
+          }
+        />
+
+        <Route path="*" element={<Home />} />
       </Routes>
     </BrowserRouter>
   );
