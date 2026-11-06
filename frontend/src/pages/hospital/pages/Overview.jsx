@@ -31,7 +31,7 @@ export default function Overview() {
           <Link className="hd-button hd-button-mint" to="/hospital/incidents">
             Review assigned alerts <Icon name="arrow" size={16} />
           </Link>
-          <small>Academic prototype · assigned hospital alerts</small>
+         
         </div>
         <div className="hd-hero-art">
           <div className="hd-hero-grid" />

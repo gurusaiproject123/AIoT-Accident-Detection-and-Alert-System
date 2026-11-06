@@ -238,7 +238,7 @@ export default function HospitalLayout({ embedded = false }) {
               <Icon name="shield" size={13} /> AIoT Accident Detection & Alert
               System
             </span>
-            <span>Academic prototype · hospital records from the backend</span>
+            
           </footer>
         </main>
       </div>
