@@ -1,12 +1,6 @@
 from uuid import UUID
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    HTTPException,
-    Query,
-    Response,
-)
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from httpx import HTTPError
 from postgrest.exceptions import APIError
 
@@ -29,14 +23,19 @@ def list_hospitals(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ):
-    """Return a page of registered hospital summaries."""
+    """Return hospital records including location and contact details."""
 
     db = get_supabase_admin()
 
     try:
         result = (
             db.table("hospitals")
-            .select("id,code,name,city,is_active", count="exact")
+            .select(
+                "id,code,name,city,address,phone,email,"
+                "latitude,longitude,is_active,notes,"
+                "created_by,created_at,updated_at",
+                count="exact",
+            )
             .order("name")
             .order("id")
             .range(offset, offset + limit - 1)
