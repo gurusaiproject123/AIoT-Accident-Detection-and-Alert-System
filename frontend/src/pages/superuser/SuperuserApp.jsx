@@ -4,6 +4,7 @@ import SuperuserLayout from "./SuperuserLayout";
 import Overview from "./pages/Overview";
 import Incidents from "./pages/Incidents";
 import IncidentDetail from "./pages/IncidentDetail";
+import Registry from "./pages/Registry";
 import Devices from "./pages/Devices";
 import Hospitals from "./pages/Hospitals";
 import Users from "./pages/Users";
@@ -22,6 +23,8 @@ export default function SuperuserApp({ embedded = false }) {
           <Route index element={<Overview />} />
           <Route path="incidents" element={<Incidents />} />
           <Route path="incidents/:incidentId" element={<IncidentDetail />} />
+          <Route path="owners" element={<Registry kind="owners" />} />
+          <Route path="vehicles" element={<Registry kind="vehicles" />} />
           <Route path="devices" element={<Devices />} />
           <Route path="hospitals" element={<Hospitals />} />
           <Route path="users" element={<Users />} />

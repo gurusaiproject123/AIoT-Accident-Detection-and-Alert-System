@@ -1,0 +1,68 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AIoT owner control test</title>
+<style>body{font:17px system-ui;max-width:650px;margin:25px auto;padding:0 18px;background:#eef5f5;color:#153238}label{display:block;margin:12px 0}input{display:block;box-sizing:border-box;width:100%;padding:12px;font:inherit}button{padding:17px;font:inherit;border:1px solid #88a4a6;border-radius:9px;background:white;touch-action:none;user-select:none}button:disabled{opacity:.45}.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:25px 0}.danger{background:#af2633;color:white}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:white;padding:15px}small{display:block;margin:12px 0}#state{min-height:25px}</style>
+<h1>Owner driving test</h1><p>Lift the wheels first. Hold a direction to move; releasing it stops. This page uses your existing owner access token.</p>
+<label>Vehicle UUID<input id="vehicle" autocomplete="off" placeholder="Registered vehicle UUID"></label>
+<label>Car-owner access token<input id="token" type="password" autocomplete="off" placeholder="Paste access_token without Bearer"></label>
+<button id="connect">Acquire controller</button> <button id="end" disabled>End controller</button>
+<label>Speed (maximum 120/255)<input id="speed" type="range" min="0" max="120" value="80"></label>
+<p id="state" role="status">Not connected.</p>
+<div class="pad"><span></span><button data-dir="forward" disabled>Forward</button><span></span><button data-dir="left" disabled>Left</button><button id="stop" class="danger">STOP</button><button data-dir="right" disabled>Right</button><span></span><button data-dir="reverse" disabled>Reverse</button><span></span></div>
+<pre id="ack">No device acknowledgment yet.</pre><small>202 means queued, not confirmed motion. A device acknowledgment reports output application, not wheel movement. Tokens remain only in this page's memory.</small>
+<script>
+let session='',sequence=0,direction='',running=false,renewTimer,ackTimer;
+const $=id=>document.getElementById(id);
+const state=t=>$('state').textContent=t;
+async function api(path,body,method='POST'){
+ const token=$('token').value.trim().replace(/^Bearer\s+/i,'');
+ const response=await fetch(path,{method,cache:'no-store',signal:AbortSignal.timeout(2000),headers:{Authorization:'Bearer '+token,...(body!==undefined?{'Content-Type':'application/json'}:{})},body:body===undefined?undefined:JSON.stringify(body)});
+ const value=await response.json().catch(()=>null);
+ if(!response.ok)throw new Error(typeof value?.detail==='string'?value.detail:'Request failed: '+response.status);
+ return value;
+}
+function controls(enabled){$('vehicle').disabled=enabled;$('token').disabled=enabled;document.querySelectorAll('[data-dir]').forEach(b=>b.disabled=!enabled);$('end').disabled=!enabled;$('connect').disabled=enabled;}
+async function end(){
+ direction='';const id=session;session='';controls(false);clearInterval(renewTimer);clearInterval(ackTimer);
+ if(id){try{await api('/api/control-sessions/'+id+'/end');state('Controller ended; stop requested.');}catch(e){state(e.message+' Device timeout must stop movement.');}}
+}
+async function stop(){
+ direction='';
+ if(session){try{await api('/api/vehicles/'+encodeURIComponent($('vehicle').value.trim())+'/stop');}catch(e){state(e.message);}}
+ await end();
+}
+async function release(){
+ direction='';
+ if(session){
+  try{await api('/api/control-sessions/'+session+'/commands',{
+   sequence_number:++sequence,direction:'stop',speed:0,sent_at:new Date().toISOString()});}
+  catch(e){state(e.message);await end();}
+ }
+}
+async function pump(){
+ if(running)return;running=true;
+ try{
+  while(direction&&session){
+   const id=session,dir=direction;
+   await api('/api/control-sessions/'+id+'/commands',{sequence_number:++sequence,direction:dir,speed:Number($('speed').value),sent_at:new Date().toISOString()});
+   await new Promise(r=>setTimeout(r,70));
+  }
+ }catch(e){state(e.message);await end();}finally{running=false;}
+}
+$('connect').onclick=async()=>{
+ $('connect').disabled=true;
+ try{
+  const value=await api('/api/vehicles/'+encodeURIComponent($('vehicle').value.trim())+'/control-sessions');
+  session=value.id;sequence=0;controls(true);state('Controller acquired. Hold a direction.');
+  renewTimer=setInterval(()=>{if(session)api('/api/control-sessions/'+session+'/renew').catch(async e=>{state(e.message);await end();});},10000);
+  ackTimer=setInterval(()=>{if(session)api('/api/control-sessions/'+session,undefined,'GET').then(v=>{$('ack').textContent=JSON.stringify(v.device_ack??{message:'Awaiting device acknowledgment'},null,2);}).catch(async e=>{state(e.message);await end();});},1500);
+ }catch(e){controls(false);state(e.message);}
+};
+$('end').onclick=end;$('stop').onclick=stop;
+document.querySelectorAll('[data-dir]').forEach(button=>{
+ button.addEventListener('pointerdown',event=>{if(!session)return;event.preventDefault();button.setPointerCapture(event.pointerId);direction=button.dataset.dir;pump();});
+ for(const type of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(type,()=>{if(direction)void release();});
+});
+window.addEventListener('blur',()=>{if(session)void stop();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&session)void stop();});
+window.addEventListener('keydown',e=>{if(e.code==='Space'&&!['INPUT','TEXTAREA'].includes(e.target.tagName)){e.preventDefault();void stop();}});
+window.addEventListener('pagehide',()=>{direction=''; /* No unload network guarantee: ESP32 timeout is independent. */});
+</script></html>

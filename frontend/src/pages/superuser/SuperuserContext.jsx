@@ -32,8 +32,9 @@ export default function SuperuserProvider({ children }) {
   const writing = useRef(false);
   const activeRefresh = useRef(null);
   const [revision, setRevision] = useState(0);
+  const toastSequence = useRef(0);
   const dismissToast = (id) => setToasts(list=>list.filter(t=>t.id!==id));
-  const notify = (message,tone="green") => setToasts(list=>[...list.slice(-3),{id:crypto.randomUUID(),message,tone}]);
+  const notify = (message,tone="green") => setToasts(list=>[...list.slice(-3),{id:`${Date.now()}-${++toastSequence.current}`,message,tone}]);
 
   const refresh = useCallback(async (signal) => {
     const request = ++sequence.current;
@@ -68,7 +69,7 @@ export default function SuperuserProvider({ children }) {
           const next = {...previous};
           if(key === "incidents") next.incidents=available.incidents.map(r=>incidentView(r));
           if(["devices","vehicles"].includes(key) && available.devices) next.devices=available.devices.map(r=>({id:r.id,code:r.device_code,status:r.status,
-            firmware:r.firmware_version,gps:r.gps_status,lastSeen:r.last_seen_at,lat:r.last_latitude,lng:r.last_longitude,
+            firmware:r.firmware_version,gps:r.gps_status,lastSeen:r.last_seen_at,lastLocation:r.last_location_at,active:r.is_active,lat:r.last_latitude,lng:r.last_longitude,
             vehicle:available.vehicles?.find(v=>v.id===r.vehicle_id)?.registration ?? (r.vehicle_id ? "Linked vehicle" : "Unassigned"),
             vehicleModel:available.vehicles?.find(v=>v.id===r.vehicle_id)?.model}));
           if(key === "hospitals") next.hospitals=available.hospitals.map(r=>({id:r.id,code:r.code,name:r.name,city:r.city,active:r.is_active,
@@ -138,20 +139,27 @@ export default function SuperuserProvider({ children }) {
     : api.createUser(token,u),"Account saved.");
   const toggleUser = (id) => write(()=>api.adminRequest(`/api/admin/users/${encodeURIComponent(id)}/status`,token,{
     method:"PATCH",body:JSON.stringify({status:data.users.find(u=>u.id===id).status==="active"?"suspended":"active"})}),"Account status updated.");
+  const visibleDevices = data.devices.map(device=>{
+    const age = device.lastSeen ? now-Date.parse(device.lastSeen) : Infinity;
+    const gpsAge = device.lastLocation ? now-Date.parse(device.lastLocation) : Infinity;
+    const online = device.active !== false && Number.isFinite(age) && age >= -5000 && age <= 60000;
+    return {...device,status:online?(device.status === "fault"?"fault":"online"):"offline",
+      gps:device.gps === "fix" && !(gpsAge>=0 && gpsAge<=60000)?"stale":device.gps};
+  });
   const stats = {
     totalIncidents:overview.total_incidents ?? (pendingSections.includes("incidents") || errors.incidents ? "—" : data.incidents.length),
     openIncidents:overview.open_incidents ?? data.incidents.filter(i=>!["closed","cancelled"].includes(i.status)).length,
     pendingAlerts:overview.pending_alerts ?? overview.pending_notifications ?? "—",
-    onlineDevices:overview.online_devices ?? (pendingSections.includes("devices") || errors.devices ? "—" : data.devices.filter(d=>d.status==="online").length),
+    onlineDevices:overview.online_devices ?? (pendingSections.includes("devices") || errors.devices ? "—" : visibleDevices.filter(d=>d.status==="online").length),
     totalDevices:overview.total_devices ?? (pendingSections.includes("devices") || errors.devices ? "—" : data.devices.length),
     activeHospitals:overview.active_hospitals ?? (pendingSections.includes("hospitals") || errors.hospitals ? "—" : data.hospitals.filter(h=>h.active).length),
     totalHospitals:overview.total_hospitals ?? (pendingSections.includes("hospitals") || errors.hospitals ? "—" : data.hospitals.length),
   };
   return <SuperuserContext.Provider value={{
-    ...data,now,stats,pendingSections,errors,refresh:()=>refresh(),getDetail,revision,
+    ...data,devices:visibleDevices,now,stats,pendingSections,errors,refresh:()=>refresh(),getDetail,revision,
     profile, signOut:()=>signOut().catch(e=>notify(e.message,"red")),
     hospitalById:Object.fromEntries(data.hospitals.map(h=>[h.id,h])),
-    deviceById:Object.fromEntries(data.devices.map(d=>[d.id,d])),
+    deviceById:Object.fromEntries(visibleDevices.map(d=>[d.id,d])),
     toasts,dismissToast,notify,preferences,setPreference:(key,value)=>setPreferences(p=>({...p,[key]:value})),
     saveHospital,toggleHospital,saveUser,toggleUser,
     notifyHospital:(id,hospital)=>write(()=>api.routeIncident(token,id,hospital),"Hospital notified."),

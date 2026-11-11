@@ -1,164 +1,71 @@
+from datetime import datetime, timezone
 from uuid import UUID
-
-from fastapi import (
-    APIRouter,
-    Depends,
-    HTTPException,
-    Query,
-    Response,
-)
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from httpx import HTTPError
 from postgrest.exceptions import APIError
-
 from app.core.database import get_supabase_admin
 from app.core.permissions import require_car_owner
 from app.schemas.auth import CurrentUser
+from app.services.owner_registry import VEHICLE_COLUMNS, active_device, owned_vehicle, owner_scope
 
-
-router = APIRouter(
-    prefix="/api/vehicles",
-    tags=["Owner - Vehicles"],
-    dependencies=[Depends(require_car_owner)],
-)
-
-
-def owner_vehicle_error(exc: APIError) -> HTTPException:
-    if exc.code == "42501":
-        return HTTPException(
-            status_code=403,
-            detail="Active car-owner access is required.",
-        )
-
-    if exc.code == "P0002":
-        return HTTPException(
-            status_code=404,
-            detail="Vehicle not found.",
-        )
-
-    return HTTPException(
-        status_code=503,
-        detail="Unable to retrieve your vehicle data.",
-    )
+router = APIRouter(prefix="/api/vehicles", tags=["Owner - Vehicles"],
+                   dependencies=[Depends(require_car_owner)])
 
 
 @router.get("")
-def list_my_vehicles(
-    response: Response,
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
-    user: CurrentUser = Depends(require_car_owner),
-):
-    """List only cars linked to the signed-in owner."""
-
-    db = get_supabase_admin()
-
+def list_my_vehicles(response: Response, limit: int = Query(20, ge=1, le=100),
+                     offset: int = Query(0, ge=0), user: CurrentUser = Depends(require_car_owner)):
     try:
-        result = (
-            db.rpc(
-                "owner_read_vehicles",
-                {"p_actor_id": str(user.id)},
-                count="exact",
-            )
-            .order("registration")
-            .order("id")
-            .range(offset, offset + limit - 1)
-            .execute()
-        )
-
-    except APIError as exc:
-        raise owner_vehicle_error(exc) from None
-
-    except HTTPError:
-        raise HTTPException(
-            status_code=503,
-            detail="Unable to retrieve your vehicles.",
-        ) from None
-
+        db = get_supabase_admin()
+        owner_id = owner_scope(db, user)
+        result = (db.table("vehicles").select(VEHICLE_COLUMNS, count="exact").eq("owner_id", owner_id)
+                  .order("registration").order("id").range(offset, offset + limit - 1).execute())
+    except (APIError, HTTPError):
+        raise HTTPException(503, "Unable to retrieve your vehicles.") from None
     response.headers["Cache-Control"] = "no-store"
-
-    return {
-        "items": result.data,
-        "total": result.count,
-        "limit": limit,
-        "offset": offset,
-    }
+    return {"items": result.data, "total": result.count, "limit": limit, "offset": offset}
 
 
 @router.get("/{vehicle_id}")
-def get_my_vehicle(
-    vehicle_id: UUID,
-    response: Response,
-    user: CurrentUser = Depends(require_car_owner),
-):
-    """Retrieve one owned car."""
-
-    db = get_supabase_admin()
-
+def get_my_vehicle(vehicle_id: UUID, response: Response, user: CurrentUser = Depends(require_car_owner)):
     try:
-        result = (
-            db.rpc(
-                "owner_read_vehicles",
-                {"p_actor_id": str(user.id)},
-            )
-            .eq("id", str(vehicle_id))
-            .limit(1)
-            .execute()
-        )
-
-    except APIError as exc:
-        raise owner_vehicle_error(exc) from None
-
-    except HTTPError:
-        raise HTTPException(
-            status_code=503,
-            detail="Unable to retrieve your vehicle.",
-        ) from None
-
-    if not result.data:
-        raise HTTPException(
-            status_code=404,
-            detail="Vehicle not found.",
-        )
-
+        vehicle = owned_vehicle(get_supabase_admin(), vehicle_id, user)
+    except (APIError, HTTPError):
+        raise HTTPException(503, "Unable to retrieve your vehicle.") from None
     response.headers["Cache-Control"] = "no-store"
+    return vehicle
 
-    return result.data[0]
+
+def age_seconds(value, now):
+    if not value:
+        return None
+    try:
+        recorded = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if recorded.tzinfo is None:
+            return None
+        return (now - recorded).total_seconds()
+    except (ValueError, TypeError, AttributeError):
+        return None
 
 
 @router.get("/{vehicle_id}/status")
-def get_my_vehicle_status(
-    vehicle_id: UUID,
-    response: Response,
-    user: CurrentUser = Depends(require_car_owner),
-):
-    """Retrieve device and recorded GPS status for an owned car."""
-
-    db = get_supabase_admin()
-
+def get_my_vehicle_status(vehicle_id: UUID, response: Response, user: CurrentUser = Depends(require_car_owner)):
     try:
-        result = db.rpc(
-            "owner_read_vehicle_status",
-            {
-                "p_actor_id": str(user.id),
-                "p_vehicle_id": str(vehicle_id),
-            },
-        ).execute()
-
-    except APIError as exc:
-        raise owner_vehicle_error(exc) from None
-
-    except HTTPError:
-        raise HTTPException(
-            status_code=503,
-            detail="Unable to retrieve vehicle status.",
-        ) from None
-
-    if not isinstance(result.data, dict):
-        raise HTTPException(
-            status_code=503,
-            detail="Vehicle status returned an unexpected result.",
-        )
-
+        db = get_supabase_admin()
+        vehicle = owned_vehicle(db, vehicle_id, user)
+        device = active_device(db, vehicle_id)
+    except (APIError, HTTPError):
+        raise HTTPException(503, "Unable to retrieve vehicle status.") from None
+    now = datetime.now(timezone.utc)
+    heartbeat_age = age_seconds(device.get("last_seen_at"), now) if device else None
+    online = heartbeat_age is not None and -5 <= heartbeat_age <= 60
+    gps = {"status": "unavailable", "latitude": None, "longitude": None, "recorded_at": None}
+    if device and device.get("last_latitude") is not None and device.get("last_longitude") is not None:
+        gps_age = age_seconds(device.get("last_location_at"), now)
+        gps = {"status": "fix" if gps_age is not None and 0 <= gps_age <= 60 else "stale",
+               "latitude": device["last_latitude"], "longitude": device["last_longitude"],
+               "recorded_at": device.get("last_location_at")}
     response.headers["Cache-Control"] = "no-store"
-
-    return result.data
+    return {"vehicle_id": vehicle["id"], "device": device,
+            "connection_status": "unassigned" if not device else "fault" if online and device.get("status") == "fault" else "online" if online else "offline",
+            "gps": gps, "checked_at": now.isoformat()}

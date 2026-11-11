@@ -10,6 +10,8 @@ const SECTION_LABELS = {
   "": "Overview",
   incidents: "Incidents",
   devices: "Devices",
+  owners: "Owners",
+  vehicles: "Vehicles",
   hospitals: "Hospitals",
   users: "Users and roles",
   activity: "Activity history",

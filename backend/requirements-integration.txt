@@ -1,0 +1,3 @@
+# Supplement your existing backend environment; retain recorded model dependencies.
+websockets>=15,<16
+email-validator>=2,<3

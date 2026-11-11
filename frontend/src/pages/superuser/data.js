@@ -20,6 +20,8 @@ export const BASE_PATH = "/superuser";
 export const NAV_ITEMS = [
   { to: "", label: "Overview", icon: "grid", end: true },
   { to: "incidents", label: "Incidents", icon: "bell" },
+  { to: "owners", label: "Owners", icon: "users" },
+  { to: "vehicles", label: "Vehicles", icon: "cpu" },
   { to: "devices", label: "Devices", icon: "cpu" },
   { to: "hospitals", label: "Hospitals", icon: "building" },
   { to: "users", label: "Users and roles", icon: "users" },

@@ -15,7 +15,7 @@ from app.schemas.telemetry import (
     TelemetryPrediction,
     TelemetryResult,
 )
-from app.services.accident_inference import predict_window
+from app.services.telemetry_processing import process_packet
 
 
 logger = logging.getLogger(__name__)
@@ -189,78 +189,18 @@ def receive_telemetry(
 
     response.headers["Cache-Control"] = "no-store"
     packet_id = str(result.data["packet_id"])
-    prediction = None
-    prediction_saved = False
-    incident_id = None
+    try:
+        processed = process_packet(db, packet_id, device.id, normalized_payload)
+    except Exception:
+        logger.exception("Packet stored but inference/incident processing is incomplete: %s", packet_id)
+        raise HTTPException(
+            status_code=503,
+            detail=("Telemetry was stored but processing is incomplete. Retry the IDENTICAL "
+                    "packet with the same boot ID and sequence number."),
+        ) from None
 
-    if (
-        not result.data["duplicate"]
-        and payload.sample_count == 1600
-        and payload.sampling_hz == 100
-    ):
-        try:
-            prediction = TelemetryPrediction.model_validate(
-                predict_window(
-                    normalized_payload["samples"],
-                    sampling_hz=payload.sampling_hz,
-                )
-            )
-        except Exception:
-            logger.exception("Accident inference failed for packet %s", packet_id)
+    return {**result.data, **processed}
 
-        if prediction is not None:
-            try:
-                db.table("model_predictions").upsert(
-                    {
-                        "packet_id": packet_id,
-                        "device_id": str(device.id),
-                        "window_start": normalized_payload["recorded_start"],
-                        "window_end": normalized_payload["recorded_end"],
-                        "model_name": MODEL_NAME,
-                        "model_version": MODEL_VERSION,
-                        "score": prediction.crash_score,
-                        "threshold": prediction.threshold,
-                        "is_suspected_accident": prediction.predicted_class == 1,
-                    },
-                    on_conflict="packet_id",
-                    ignore_duplicates=True,
-                ).execute()
-                prediction_saved = True
-            except (APIError, HTTPError):
-                logger.exception(
-                    "Could not confirm prediction save for packet %s", packet_id
-                )
-
-    if (
-        prediction_saved
-        and prediction is not None
-        and prediction.predicted_class == 1
-    ):
-        try:
-            incident_result = db.rpc(
-                "create_incident_from_prediction",
-                {"p_packet_id": packet_id},
-            ).execute()
-
-            if incident_result.data is None:
-                logger.error(
-                    "Incident function returned no ID for suspected crash packet %s",
-                    packet_id,
-                )
-            else:
-                incident_id = UUID(str(incident_result.data))
-        except (APIError, HTTPError, ValueError):
-            logger.exception(
-                "Could not confirm incident creation for packet %s", packet_id
-            )
-
-    return {
-        **result.data,
-        "detection_performed": prediction is not None,
-        "prediction": prediction,
-        "prediction_saved": prediction_saved,
-        "incident_id": incident_id,
-    }
 
 
 @router.post("/{device_id}/incidents/{incident_id}/cancel")

@@ -1,3 +1,4 @@
+import Registry from "./Registry";
 import { useState } from "react";
 import Icon from "../components/Icon";
 import { EmptyState, FilterTabs, PageHeading, Panel, SearchInput, StatCard, StatusBadge } from "../components/ui";
@@ -26,6 +27,8 @@ export default function Devices() {
         title="Devices"
         subtitle="Connection status, last-seen time and GPS status for every ESP32 unit."
       />
+
+      <Registry kind="devices" compact />
 
       <div className="su-stats">
         <StatCard label="Online" value={count("online")} hint="Communicating with the system" icon="wifi" tone="green" />
@@ -118,7 +121,7 @@ export default function Devices() {
           </div>
         )}
         <p className="su-table-foot">
-          Device and GPS status reflect the latest backend records.
+          Connection and GPS freshness use the latest received timestamps. Refresh data to retrieve newer records.
         </p>
       </Panel>
     </div>

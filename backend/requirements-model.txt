@@ -1,0 +1,6 @@
+# Match any additional recorded numpy/pandas versions using check_model.py.
+# These sklearn/joblib versions are from your previously working model setup.
+scikit-learn==1.6.1
+joblib==1.6.0
+numpy
+pandas
