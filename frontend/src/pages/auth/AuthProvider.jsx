@@ -22,7 +22,18 @@ export default function AuthProvider({ children, client: sharedClient, apiBaseUr
     if (!session) { setState({ session:null, profile:null, loading:false, error:config.error }); return; }
     const controller = new AbortController();
     request.current = controller;
-    setState({ session, profile:null, loading:true, error:null });
+    // Rechecking the same account must not unmount the active dashboard.
+    // Initial access and account changes still wait for backend verification.
+    setState(previous => {
+      const keepProfile = previous.profile && !previous.error &&
+        previous.session?.user?.id === session.user?.id;
+      return {
+        session,
+        profile: keepProfile ? previous.profile : null,
+        loading: !keepProfile,
+        error: null,
+      };
+    });
     const timeout = window.setTimeout(() => controller.abort(), 15000);
     try {
       const profile = await fetchVerifiedProfile(session, {baseUrl:apiBaseUrl,signal:controller.signal});
@@ -69,6 +80,25 @@ export default function AuthProvider({ children, client: sharedClient, apiBaseUr
     if (error) throw new Error('Sign-out could not be fully confirmed. Please retry.');
     await applySession(null);
   }, [config,applySession]);
+  useEffect(() => {
+    if (!config.client) return;
+    const endPageSession = () => {
+      // Clear UI access immediately; unload-time network requests are best effort.
+      void applySession(null);
+      void config.client.auth.stopAutoRefresh();
+      void config.client.auth.signOut({scope:'local'}).catch(() => {});
+    };
+    const restorePage = event => {
+      // Browser Back may restore a whole page from memory instead of loading it.
+      if (event.persisted) window.location.reload();
+    };
+    window.addEventListener('pagehide', endPageSession);
+    window.addEventListener('pageshow', restorePage);
+    return () => {
+      window.removeEventListener('pagehide', endPageSession);
+      window.removeEventListener('pageshow', restorePage);
+    };
+  }, [config.client, applySession]);
   const retryAccess=useCallback(()=>applySession(currentSession.current),[applySession]);
   const value=useMemo(()=>({...state,configured:Boolean(config.client),signIn,signOut,retryAccess}),[state,config.client,signIn,signOut,retryAccess]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

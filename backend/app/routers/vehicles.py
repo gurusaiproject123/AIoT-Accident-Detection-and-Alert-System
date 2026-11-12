@@ -69,3 +69,20 @@ def get_my_vehicle_status(vehicle_id: UUID, response: Response, user: CurrentUse
     return {"vehicle_id": vehicle["id"], "device": device,
             "connection_status": "unassigned" if not device else "fault" if online and device.get("status") == "fault" else "online" if online else "offline",
             "gps": gps, "checked_at": now.isoformat()}
+
+
+@router.get("/{vehicle_id}/motion/latest")
+def get_latest_motion(vehicle_id: UUID, response: Response, user: CurrentUser = Depends(require_car_owner)):
+    """Latest uploaded IMU sample for the current active device of an owned car."""
+    try:
+        db = get_supabase_admin()
+        owned_vehicle(db, vehicle_id, user)
+        device = active_device(db, vehicle_id)
+        rows = [] if not device else (db.table("sensor_readings")
+            .select("recorded_at,accel_x,accel_y,accel_z,gyro_x,gyro_y,gyro_z")
+            .eq("device_id", str(device["id"])).order("recorded_at", desc=True).limit(1).execute().data)
+    except (APIError, HTTPError):
+        raise HTTPException(503, "Unable to retrieve uploaded motion readings.") from None
+    response.headers["Cache-Control"] = "no-store"
+    return {"vehicle_id": str(vehicle_id), "sample": rows[0] if rows else None,
+            "acceleration_unit": "m/s^2", "rotation_unit": "deg/s"}

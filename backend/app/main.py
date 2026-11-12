@@ -18,7 +18,6 @@ from app.routers.vehicles import router as owner_vehicles_router
 from app.routers.devices import router as device_reporting_router
 from app.routers.incidents import router as incidents_router
 
-from app.routers.control import router as control_router
 from app.routers.device_state import router as device_state_router
 
 
@@ -65,8 +64,7 @@ app.include_router(owner_vehicles_router)
 app.include_router(device_reporting_router)
 app.include_router(device_state_router)
 
-# Live driving controls and phone test page
-app.include_router(control_router)
+# Driving is served locally by the ESP32, independently of this backend.
 
 # Incidents and hospital alerts
 app.include_router(incidents_router)

@@ -10,6 +10,7 @@ export function getSupabaseClient() {
   const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
   if (!url || !key) throw new Error('Configure the Supabase URL and publishable key in frontend/.env.local, then restart Vite.');
   if (key.startsWith('sb_secret_')) throw new Error('Use a Supabase publishable key in the frontend, never a secret key.');
-  singleton = createClient(url, key, { auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:false } });
+  // Keep credentials in this page's memory; refresh/close requires a new sign-in.
+  singleton = createClient(url, key, { auth:{ persistSession:false, autoRefreshToken:true, detectSessionInUrl:false } });
   return singleton;
 }
