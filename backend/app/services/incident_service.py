@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import logging
 import math
 import threading
 from datetime import datetime, timedelta, timezone
@@ -22,6 +23,8 @@ from app.schemas.incident import (
     IncidentCloseRequest,
     IncidentNoteCreate,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _utc_now() -> datetime:
@@ -1381,6 +1384,7 @@ class IncidentService:
                 res = db.rpc("process_incident_deadlines", {}).execute()
                 return res.data if isinstance(res.data, dict) else {"processed": True}
             except (APIError, HTTPError):
+                logger.exception("Database process_incident_deadlines failed")
                 raise HTTPException(
                     status_code=503,
                     detail="Unable to process incident deadlines.",

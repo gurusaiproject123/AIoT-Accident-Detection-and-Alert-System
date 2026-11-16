@@ -42,6 +42,7 @@ from app.schemas.alerts import (
 )
 from app.services.alert_service import HospitalAlertService, alert_service
 from app.services.websocket_manager import live_manager
+from app.services.hospital_inbox import HospitalInbox, hospital_inbox
 
 router = APIRouter(tags=["Hospital Alerts"])
 
@@ -51,14 +52,18 @@ def get_alert_service() -> HospitalAlertService:
     return alert_service
 
 
+def get_hospital_inbox() -> HospitalInbox:
+    return hospital_inbox
+
+
 @router.get(
     "/api/hospital/alerts",
     response_model=list[HospitalAlertResponse],
     summary="List notifications assigned to the caller's verified hospital",
 )
-async def list_hospital_alerts(
+def list_hospital_alerts(
     caller: Annotated[AuthenticatedUser, Depends(require_hospital_staff)],
-    service: Annotated[HospitalAlertService, Depends(get_alert_service)],
+    service: Annotated[HospitalInbox, Depends(get_hospital_inbox)],
     status_filter: Annotated[
         NotificationStatus | None,
         Query(alias="status", description="Optional notification status filter."),
@@ -77,10 +82,10 @@ async def list_hospital_alerts(
     response_model=HospitalAlertResponse,
     summary="Retrieve one authorized hospital notification",
 )
-async def get_alert(
+def get_alert(
     id: UUID,
     caller: Annotated[AuthenticatedUser, Depends(require_hospital_staff_or_superuser)],
-    service: Annotated[HospitalAlertService, Depends(get_alert_service)],
+    service: Annotated[HospitalInbox, Depends(get_hospital_inbox)],
 ) -> HospitalAlertResponse:
     """Return one `incident_notifications` record if the caller is assigned to that hospital or is a superuser."""
     return service.get_authorized_alert(id, caller)
@@ -94,7 +99,7 @@ async def get_alert(
 async def acknowledge_alert(
     id: UUID,
     caller: Annotated[AuthenticatedUser, Depends(require_hospital_staff)],
-    service: Annotated[HospitalAlertService, Depends(get_alert_service)],
+    service: Annotated[HospitalInbox, Depends(get_hospital_inbox)],
 ) -> AlertActionResponse:
     """Record that hospital staff have seen the alert without automatically accepting the response."""
     return await service.acknowledge_alert(id, caller)

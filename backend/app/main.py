@@ -1,4 +1,8 @@
+import asyncio
+from contextlib import asynccontextmanager
+
 from app.core.config import get_settings
+from app.workers.incident_deadline_worker import cancellation_deadline_worker_loop
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -21,7 +25,19 @@ from app.routers.incidents import router as incidents_router
 from app.routers.device_state import router as device_state_router
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    stop_event = asyncio.Event()
+    worker = asyncio.create_task(cancellation_deadline_worker_loop(stop_event=stop_event))
+    try:
+        yield
+    finally:
+        stop_event.set()
+        await worker
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="AIoT Accident Detection API",
     description=(
         "Authentication, administration, vehicle registry, "

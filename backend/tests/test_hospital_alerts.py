@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import json
 import unittest
+from unittest.mock import patch
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import urlsplit
@@ -24,6 +25,7 @@ from uuid import UUID, uuid4
 
 from app.core.auth import AuthenticatedUser, set_token_verifier
 from app.main import app
+from app.routers.alerts import get_hospital_inbox
 from app.schemas.alerts import OwnerContactSummary, VehicleSummary
 from app.services.alert_service import (
     HospitalRecord,
@@ -188,10 +190,21 @@ class HospitalAlertsWorkflowTests(unittest.TestCase):
     """Comprehensive tests for Victor's Section 7 hospital alerts & live updates module."""
 
     def setUp(self) -> None:
+        app.dependency_overrides[get_hospital_inbox] = lambda: alert_service
         alert_service.reset_state()
         live_manager._connections.clear()
         set_token_verifier(lambda tok: TEST_ACCOUNTS.get(tok))
         self.t0 = datetime(2026, 10, 30, 12, 0, 0, tzinfo=timezone.utc)
+        # HTTP actions must share the fixture clock, rather than expire as the
+        # real calendar moves beyond this deterministic scenario.
+        action_time = self.t0 + timedelta(seconds=40)
+        class ScenarioClock(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return action_time.astimezone(tz) if tz else action_time.replace(tzinfo=None)
+        clock_patch = patch("app.services.alert_service.datetime", ScenarioClock)
+        clock_patch.start()
+        self.addCleanup(clock_patch.stop)
 
         alert_service.register_hospital_fixture(
             HospitalRecord(
@@ -260,6 +273,7 @@ class HospitalAlertsWorkflowTests(unittest.TestCase):
         )
 
     def tearDown(self) -> None:
+        app.dependency_overrides.pop(get_hospital_inbox, None)
         live_manager._connections.clear()
         set_token_verifier(None)
 

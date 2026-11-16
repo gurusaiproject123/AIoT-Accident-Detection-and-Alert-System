@@ -192,7 +192,9 @@ export default function SuperuserLayout({ embedded = false }) {
                 <p key={incident.id}>
                   <strong>{incident.id}</strong> suspected accident from{" "}
                   <span className="su-mono">{incident.deviceId}</span> — 30-second false-alarm window:{" "}
-                  <strong>{remaining}s</strong> remaining before hospitals are notified.
+                  {remaining > 0
+                    ? <><strong>{remaining}s</strong> remaining before hospitals are notified.</>
+                    : "Deadline passed; awaiting server confirmation of the outcome and hospital routing."}
                 </p>
               ))}
             </div>

@@ -6,7 +6,7 @@ import * as api from "./api";
 const sections = ["overview","incidents","devices","hospitals","users","owners","vehicles","audit"];
 const empty = {incidents: [], devices: [], hospitals: [], users: [], owners: [], audit: []};
 const incidentView = (r, timeline = []) => ({
-  id:r.id, code:r.code, deviceId:r.device_id, detectedAt:r.detected_at,
+  id:r.id, code:r.code, deviceId:r.device_id, vehicleId:r.vehicle_id, predictionId:r.prediction_id, detectedAt:r.detected_at,
   status:r.status, modelScore:r.model_score, impact:r.impact_summary,
   location:{label:r.location_label ?? r.location_status_label, lat:r.latitude, lng:r.longitude},
   cancellation:{windowSeconds:r.cancellation_window_seconds, deadline:r.cancellation_deadline,
@@ -68,10 +68,11 @@ export default function SuperuserProvider({ children }) {
         setData(previous=>{
           const next = {...previous};
           if(key === "incidents") next.incidents=available.incidents.map(r=>incidentView(r));
-          if(["devices","vehicles"].includes(key) && available.devices) next.devices=available.devices.map(r=>({id:r.id,code:r.device_code,status:r.status,
+          if(["devices","vehicles","owners"].includes(key) && available.devices) next.devices=available.devices.map(r=>({id:r.id,code:r.device_code,status:r.status,
             firmware:r.firmware_version,gps:r.gps_status,lastSeen:r.last_seen_at,lastLocation:r.last_location_at,active:r.is_active,lat:r.last_latitude,lng:r.last_longitude,
             vehicle:available.vehicles?.find(v=>v.id===r.vehicle_id)?.registration ?? (r.vehicle_id ? "Linked vehicle" : "Unassigned"),
-            vehicleModel:available.vehicles?.find(v=>v.id===r.vehicle_id)?.model}));
+            vehicleModel:available.vehicles?.find(v=>v.id===r.vehicle_id)?.model,
+            owner:available.owners?.find(o=>o.id===available.vehicles?.find(v=>v.id===r.vehicle_id)?.owner_id)?.full_name}));
           if(key === "hospitals") next.hospitals=available.hospitals.map(r=>({id:r.id,code:r.code,name:r.name,city:r.city,active:r.is_active,
             phone:r.phone??"",email:r.email??"",address:r.address??"",lat:r.latitude,lng:r.longitude,registeredAt:r.created_at}));
           if(["owners","vehicles"].includes(key) && available.owners && available.vehicles) next.owners=available.owners.map(r=>{
@@ -100,6 +101,28 @@ export default function SuperuserProvider({ children }) {
     const clock=setInterval(()=>setNow(Date.now()),1000);
     return ()=>{++sequence.current; controller.abort(); activeRefresh.current?.abort(); clearInterval(clock);};
   },[refresh]);
+
+  const hasCancellationWindow = data.incidents.some(incident => incident.status === "cancellation_window");
+  useEffect(() => {
+    if (!hasCancellationWindow) return;
+    const controller = new AbortController();
+    let timer;
+    const poll = async () => {
+      try {
+        const records = await api.getAll("/api/admin/incidents", token,
+          AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]));
+        if (controller.signal.aborted) return;
+        setData(previous => ({...previous, incidents: records.map(record => incidentView(record))}));
+        setRevision(value => value + 1);
+      } catch {
+        // Keep the last confirmed state and retry; elapsed time is not an outcome.
+      } finally {
+        if (!controller.signal.aborted) timer = setTimeout(poll, 5000);
+      }
+    };
+    timer = setTimeout(poll, 5000);
+    return () => { controller.abort(); clearTimeout(timer); };
+  }, [hasCancellationWindow, token]);
 
   const getDetail = useCallback(async (id,signal)=>{
     const [record,timeline]=await Promise.all([

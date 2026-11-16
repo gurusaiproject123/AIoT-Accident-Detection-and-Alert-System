@@ -44,7 +44,7 @@ const TIMELINE_TONES = {
 
 export default function IncidentDetail() {
   const { incidentId } = useParams();
-  const { getDetail, revision, hospitals, hospitalById, deviceById, now, notifyHospital, closeIncident, addIncidentNote } =
+  const { getDetail, revision, hospitals, owners, pendingSections, errors, hospitalById, deviceById, now, notifyHospital, closeIncident, addIncidentNote } =
     useSuperuser();
   const [loaded, setLoaded] = useState(null);
   useEffect(() => {
@@ -82,10 +82,22 @@ export default function IncidentDetail() {
   }
 
   const device = deviceById[incident.deviceId];
+  const owner = owners.find(record => record.vehicleIds.includes(incident.vehicleId));
+  const ownerLabel = owner?.name ?? (
+    pendingSections.some(section => ["owners", "vehicles"].includes(section)) ? "Loading owner details…" :
+    errors.owners || errors.vehicles ? "Owner details could not be loaded" : "No registered owner linked"
+  );
   const isResolved = ["closed", "cancelled"].includes(incident.status);
   const inWindow = incident.status === "cancellation_window";
   const notifiedIds = incident.notifications.map((n) => n.hospitalId);
   const routable = hospitals.filter((h) => h.active && !notifiedIds.includes(h.id));
+  const routingMessage = pendingSections.includes("hospitals")
+    ? "Loading hospitals…"
+    : errors.hospitals
+      ? "Hospital list could not be loaded. Use Refresh data to retry."
+      : hospitals.some(h => h.active)
+        ? "All active hospitals have already been notified for this incident. Current routing rules exclude previously notified hospitals, including timed-out alerts."
+        : "No hospitals are active. Register or activate an eligible hospital first.";
   const url = mapsUrl(incident.location?.lat, incident.location?.lng);
 
   const deadline =
@@ -93,7 +105,9 @@ export default function IncidentDetail() {
   const remaining = Math.max(0, Math.ceil((deadline - now) / 1000));
 
   const cancellation = {
-    pending: { label: "Window running", tone: "amber", text: `${remaining}s left for a local false-alarm cancellation.` },
+    pending: remaining > 0
+      ? { label: "Window running", tone: "amber", text: `${remaining}s left for a local false-alarm cancellation.` }
+      : { label: "Awaiting server confirmation", tone: "amber", text: "The cancellation deadline has passed. Waiting for the server to confirm the outcome and hospital routing." },
     expired: { label: "Not cancelled", tone: "red", text: "The cancellation window ended without a cancellation, before the incident could be cancelled." },
     cancelled: { label: "Cancelled", tone: "grey", text: `Cancelled as a false alarm by ${incident.cancellation.by ?? "an authorised operator"}.` },
   }[incident.cancellation.outcome];
@@ -148,8 +162,8 @@ export default function IncidentDetail() {
                 { label: "Detected at", value: formatDateTime(incident.detectedAt) },
                 { label: "Device", value: <span className="su-mono">{incident.deviceId}</span> },
                 { label: "Vehicle", value: device ? `${device.vehicle} · ${device.vehicleModel}` : "Unknown device" },
-                { label: "Registered owner", value: device?.owner ?? "Unavailable" },
-                { label: "Detection signal", value: incident.impact },
+                { label: "Registered owner", value: ownerLabel },
+                { label: "Detection signal", value: incident.impact || (incident.predictionId ? "Model prediction; impact summary not recorded" : "Detection summary not recorded") },
                 {
                   label: "Model score",
                   value: (
@@ -192,7 +206,7 @@ export default function IncidentDetail() {
             subtitle="Acknowledgment and acceptance from each notified hospital."
           >
             {incident.notifications.length === 0 ? (
-              <EmptyState icon="building" title={inWindow ? "Waiting for the cancellation window" : "No hospitals notified"}>
+              <EmptyState icon="building" title={inWindow ? (remaining > 0 ? "Waiting for the cancellation window" : "Awaiting server confirmation") : "No hospitals notified"}>
                 {inWindow
                   ? "Hospitals are notified automatically if the alert is not cancelled."
                   : "No notification was sent for this incident."}
@@ -239,17 +253,18 @@ export default function IncidentDetail() {
                     onChange={(e) => setRouteTo(e.target.value)}
                     disabled={!routable.length}
                   >
-                    <option value="">{routable.length ? "Select an active hospital" : "No other active hospitals"}</option>
+                    <option value="">{routable.length ? "Select an active hospital" : "No eligible hospitals available"}</option>
                     {routable.map((h) => (
                       <option key={h.id} value={h.id}>
                         {h.name} · {h.city}
                       </option>
                     ))}
                   </select>
-                  <button type="button" className="su-btn su-btn-primary" onClick={submitRoute} disabled={!routeTo}>
+                  <button type="button" className="su-btn su-btn-primary" onClick={submitRoute} disabled={!routable.some(h => h.id === routeTo)}>
                     <Icon name="send" size={15} /> Notify
                   </button>
                 </div>
+                {!routable.length && <p role="status">{routingMessage} <Link to={`${BASE_PATH}/hospitals`}>Manage hospitals</Link></p>}
                 <small>Manual routing is recorded in the escalation history and activity log.</small>
               </div>
             )}
