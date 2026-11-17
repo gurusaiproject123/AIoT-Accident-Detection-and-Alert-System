@@ -1,4 +1,4 @@
-const base = (import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
+import { API_BASE_URL as base } from '../../config/api';
 
 export async function hospitalRequest(token, path, { signal, method = "GET", body } = {}) {
   if (!token) throw new Error("Sign in again to access hospital alerts.");

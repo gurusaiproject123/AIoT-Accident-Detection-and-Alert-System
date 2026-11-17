@@ -4,7 +4,7 @@
 2. Merge the contents of this archive's frontend/src/pages/superuser folder
    into the same folder in your project.
 3. Keep your working frontend/src/main.jsx and frontend/src/pages/auth/.
-   This dashboard uses the existing AuthProvider and Supabase session.
+   This dashboard uses the AuthProvider and local FastAPI session.
 4. In your working frontend/src/App.jsx, add:
    
    ```jsx

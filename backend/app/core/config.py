@@ -3,7 +3,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,14 +21,21 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
     ]
 
-    supabase_url: str
+    supabase_url: str = ""
     supabase_publishable_key: str = ""
-    supabase_service_role_key: SecretStr
+    supabase_service_role_key: SecretStr = SecretStr("")
     database_url: str = ""
+    database_backend: str = "supabase"
+    mysql_host: str = "127.0.0.1"
+    mysql_port: int = 3306
+    mysql_database: str = "aiot_accident_detection"
+    mysql_user: str = "aiot_app"
+    mysql_password: SecretStr = SecretStr("")
 
     cancellation_window_seconds: int = 30
     hospital_ack_timeout_seconds: int = 180
     max_escalation_level: int = 3
+    detection_threshold: float | None = Field(default=None, ge=0, le=1, allow_inf_nan=False)
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",

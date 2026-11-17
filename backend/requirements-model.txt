@@ -1,6 +1,6 @@
-# Match any additional recorded numpy/pandas versions using check_model.py.
-# These sklearn/joblib versions are from your previously working model setup.
+# sklearn/numpy/pandas versions recorded in models/accident_model.joblib.
+# Keep the existing joblib version used by this project.
 scikit-learn==1.6.1
 joblib==1.6.0
-numpy
-pandas
+numpy==2.1.3
+pandas==2.2.3

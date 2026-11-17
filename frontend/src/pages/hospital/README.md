@@ -26,7 +26,7 @@ If App declares each route separately, replace its hospital placeholder with thi
 <Route path="/hospital/*" element={<HospitalDashboard />} />
 ```
 
-Keep the existing AuthProvider. Set `VITE_API_BASE_URL=http://127.0.0.1:8000` in the frontend environment file and restart Vite after edits to that file. Keep the Supabase URL and publishable key already used by the working sign-in. Start FastAPI from `backend` with `./.venv/Scripts/python.exe -m uvicorn app.main:app --reload` in PowerShell. Check `http://127.0.0.1:8000/docs` for the hospital alerts and incidents routers. From `frontend`, run `npm run dev`.
+The AuthProvider signs in through local FastAPI. Set `VITE_API_BASE_URL=` (empty) in `frontend/.env.local` and restart Vite after edits. Vite forwards `/api` requests to local FastAPI, independent of the laptop's Wi-Fi address. Start WAMP MySQL, then start FastAPI from `backend` with `../.venv/Scripts/python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000` in PowerShell. From `frontend`, run `npm.cmd run dev -- --host 0.0.0.0`. Supabase frontend credentials are no longer needed.
 
 ## Verify with a test incident
 

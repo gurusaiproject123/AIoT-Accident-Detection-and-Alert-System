@@ -227,3 +227,6 @@ __pycache__/
 #superbase omittion for security
 superbase/
 supabase/
+
+# Private database migration snapshots and source definitions
+backend/migration-private/

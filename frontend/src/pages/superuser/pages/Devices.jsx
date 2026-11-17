@@ -121,7 +121,7 @@ export default function Devices() {
           </div>
         )}
         <p className="su-table-foot">
-          Connection and GPS freshness use the latest received timestamps. Refresh data to retrieve newer records.
+          Device records update automatically every five seconds. Connection and GPS freshness use the latest received timestamps.
         </p>
       </Panel>
     </div>

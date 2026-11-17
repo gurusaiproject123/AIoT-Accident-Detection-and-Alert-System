@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AuthContext } from './useAuth';
-import { API_BASE_URL, getSupabaseClient } from './supabaseClient';
+import { API_BASE_URL, getAuthClient } from './authClient';
 import { fetchVerifiedProfile, signInError } from './authService';
 
 export default function AuthProvider({ children, client: sharedClient, apiBaseUrl = API_BASE_URL }) {
   const config = useMemo(() => {
-    try { return { client:sharedClient ?? getSupabaseClient(), error:null }; }
-    catch { return { client:null, error:'Authentication is not configured. Set the Supabase URL/publishable key and restart Vite.' }; }
-  }, [sharedClient]);
+    try { return { client:sharedClient ?? getAuthClient(apiBaseUrl), error:null }; }
+    catch { return { client:null, error:'Authentication is not configured. Check the FastAPI connection.' }; }
+  }, [sharedClient, apiBaseUrl]);
   const [state, setState] = useState({ session:null, profile:null, loading:Boolean(config.client), error:config.error });
   const mounted = useRef(false);
   const sequence = useRef(0);
@@ -20,6 +20,10 @@ export default function AuthProvider({ children, client: sharedClient, apiBaseUr
     request.current?.abort();
     currentSession.current = session;
     if (!session) { setState({ session:null, profile:null, loading:false, error:config.error }); return; }
+    if (session.password_change_required) {
+      setState({session,profile:null,loading:false,error:null});
+      return;
+    }
     const controller = new AbortController();
     request.current = controller;
     // Rechecking the same account must not unmount the active dashboard.
@@ -100,6 +104,10 @@ export default function AuthProvider({ children, client: sharedClient, apiBaseUr
     };
   }, [config.client, applySession]);
   const retryAccess=useCallback(()=>applySession(currentSession.current),[applySession]);
-  const value=useMemo(()=>({...state,configured:Boolean(config.client),signIn,signOut,retryAccess}),[state,config.client,signIn,signOut,retryAccess]);
+  const changePassword=useCallback(async(oldPassword,newPassword)=>{
+    const session=await config.client.auth.changePassword(oldPassword,newPassword);
+    await applySession(session);
+  },[config.client,applySession]);
+  const value=useMemo(()=>({...state,configured:Boolean(config.client),signIn,signOut,retryAccess,changePassword}),[state,config.client,signIn,signOut,retryAccess,changePassword]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -48,7 +48,7 @@ export default function UserForm({ user, hospitals, owners = [], initialHospital
     <form id="user-form" className="su-form-grid" onSubmit={submit} noValidate>
       {formError && <p role="alert" className="su-form-error su-form-full">{formError}</p>}
       <Field label="Full name" error={errors.name}><input value={values.name} onChange={set("name")} placeholder="e.g. Receptionist Thandi" autoComplete="name" disabled={saving || isEdit} /></Field>
-      <Field label="Email address" error={errors.email} hint={isEdit ? "Login email changes must be managed through Supabase Auth." : "Sign-in uses email and password ."}>
+      <Field label="Email address" error={errors.email} hint={isEdit ? "Login email cannot be changed in this form." : "Sign-in uses email and password."}>
         <input value={values.email} onChange={set("email")} type="email" autoComplete="email" placeholder="name@example.com" disabled={saving || isEdit} />
       </Field>
       <Field label="Authorised role" error={errors.role} hint="Assigned by the superuser, never chosen during staff signup.">

@@ -102,27 +102,61 @@ export default function SuperuserProvider({ children }) {
     return ()=>{++sequence.current; controller.abort(); activeRefresh.current?.abort(); clearInterval(clock);};
   },[refresh]);
 
-  const hasCancellationWindow = data.incidents.some(incident => incident.status === "cancellation_window");
+  // Heartbeats keep arriving independently of registry edits or page navigation.
   useEffect(() => {
-    if (!hasCancellationWindow) return;
     const controller = new AbortController();
     let timer;
     const poll = async () => {
+      const version = sequence.current;
       try {
-        const records = await api.getAll("/api/admin/incidents", token,
+        const records = await api.getAll("/api/admin/devices", token,
           AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]));
-        if (controller.signal.aborted) return;
-        setData(previous => ({...previous, incidents: records.map(record => incidentView(record))}));
-        setRevision(value => value + 1);
-      } catch {
-        // Keep the last confirmed state and retry; elapsed time is not an outcome.
+        if (controller.signal.aborted || version !== sequence.current) return;
+        setData(previous => ({...previous, devices: records.map(r => ({
+          ...previous.devices.find(d => d.id === r.id),
+          id:r.id, code:r.device_code, status:r.status, firmware:r.firmware_version,
+          gps:r.gps_status, lastSeen:r.last_seen_at, lastLocation:r.last_location_at,
+          active:r.is_active, lat:r.last_latitude, lng:r.last_longitude,
+        }))}));
+        setErrors(previous => { const next = {...previous}; delete next.devices; return next; });
+      } catch (error) {
+        if (!controller.signal.aborted && version === sequence.current)
+          setErrors(previous => ({...previous, devices: "Device updates failed. Displaying last received data. " + error.message}));
       } finally {
         if (!controller.signal.aborted) timer = setTimeout(poll, 5000);
       }
     };
     timer = setTimeout(poll, 5000);
     return () => { controller.abort(); clearTimeout(timer); };
-  }, [hasCancellationWindow, token]);
+  }, [token]);
+
+  // Discover new incidents even when there is no known cancellation window.
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    let timer;
+    let lastSnapshot;
+    const poll = async () => {
+      const version = sequence.current;
+      try {
+        const records = await api.getAll("/api/admin/incidents", token,
+          AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]));
+        if (controller.signal.aborted || version !== sequence.current) return;
+        setData(previous => ({...previous, incidents: records.map(record => incidentView(record))}));
+        const snapshot = JSON.stringify(records);
+        if (snapshot !== lastSnapshot) setRevision(value => value + 1);
+        lastSnapshot = snapshot;
+        setErrors(previous => { const next = {...previous}; delete next.incidents; return next; });
+      } catch (error) {
+        if (!controller.signal.aborted && version === sequence.current)
+          setErrors(previous => ({...previous, incidents: "Live incident updates failed. Displaying last received data. " + error.message}));
+      } finally {
+        if (!controller.signal.aborted) timer = setTimeout(poll, 2000);
+      }
+    };
+    void poll();
+    return () => { controller.abort(); clearTimeout(timer); };
+  }, [token]);
 
   const getDetail = useCallback(async (id,signal)=>{
     const [record,timeline]=await Promise.all([
@@ -173,7 +207,7 @@ export default function SuperuserProvider({ children }) {
     totalIncidents:overview.total_incidents ?? (pendingSections.includes("incidents") || errors.incidents ? "—" : data.incidents.length),
     openIncidents:overview.open_incidents ?? data.incidents.filter(i=>!["closed","cancelled"].includes(i.status)).length,
     pendingAlerts:overview.pending_alerts ?? overview.pending_notifications ?? "—",
-    onlineDevices:overview.online_devices ?? (pendingSections.includes("devices") || errors.devices ? "—" : visibleDevices.filter(d=>d.status==="online").length),
+    onlineDevices:pendingSections.includes("devices") || errors.devices ? "—" : visibleDevices.filter(d=>d.status==="online").length,
     totalDevices:overview.total_devices ?? (pendingSections.includes("devices") || errors.devices ? "—" : data.devices.length),
     activeHospitals:overview.active_hospitals ?? (pendingSections.includes("hospitals") || errors.hospitals ? "—" : data.hospitals.filter(h=>h.active).length),
     totalHospitals:overview.total_hospitals ?? (pendingSections.includes("hospitals") || errors.hospitals ? "—" : data.hospitals.length),

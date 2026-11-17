@@ -74,6 +74,15 @@ def create_user(
     user: CurrentUser = Depends(require_superuser),
 ):
     """Create a hospital-staff or registered car-owner login."""
+    from app.core.config import get_settings
+    if get_settings().database_backend == "mysql":
+        from app.localdb.storage import transaction
+        from app.localdb.registry import create_account
+        try:
+            with transaction() as conn:
+                return create_account(conn,user,payload)
+        except APIError as exc:
+            raise HTTPException(409 if exc.code in {"23505","23514"} else 422, exc.message) from None
 
     db = get_supabase_admin()
     email = str(payload.email).lower()

@@ -16,6 +16,6 @@ export async function fetchVerifiedProfile(session, { baseUrl, signal, fetcher =
 export function signInError(error) {
   if (error?.code === 'email_not_confirmed') return 'Confirm your email before signing in, or contact your administrator.';
   if (error?.status === 429 || error?.code === 'over_request_rate_limit') return 'Too many attempts. Wait a moment before trying again.';
-  if (error?.code === 'invalid_credentials' || error?.status === 400) return 'The email or password is incorrect.';
+  if (error?.code === 'invalid_credentials' || error?.status === 400 || error?.status === 401) return 'The email or password is incorrect.';
   return 'Could not sign in. Check your connection and try again.';
 }

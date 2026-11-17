@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
+import { API_BASE_URL as API_BASE } from '../../config/api';
 
 export const ADMIN_ENDPOINTS = {
   overview: "/api/admin/overview",
@@ -17,7 +17,7 @@ export const ADMIN_ENDPOINTS = {
 /**
  * Minimal authenticated fetch wrapper.
  * @param {string} path      Endpoint path from ADMIN_ENDPOINTS.
- * @param {string} token     Supabase session access token.
+ * @param {string} token     Local session access token.
  * @param {RequestInit} init Optional fetch options.
  */
 export async function adminRequest(path, token, init = {}) {
@@ -65,7 +65,7 @@ export const closeIncident = (token, id, note) =>
   });
 
 
-/** Provision a Supabase account through FastAPI. Never persist passwords. */
+/** Provision a local account through FastAPI. Never persist passwords. */
 export function createUser(token, { name, email, role, hospitalId, ownerId, password }) {
   if (!token) throw new Error("A verified administrator session is required.");
   if (!["hospital_staff","car_owner"].includes(role)) throw new Error("Unsupported user role.");

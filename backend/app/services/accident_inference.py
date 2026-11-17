@@ -4,6 +4,7 @@ from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
+from app.core.config import get_settings
 
 
 MODEL_PATH = (
@@ -79,7 +80,8 @@ def predict_window(samples, *, sampling_hz):
 
     crash_index = list(model.classes_).index(1)
     crash_score = float(model.predict_proba(frame)[0, crash_index])
-    threshold = float(bundle["threshold"])
+    override = get_settings().detection_threshold
+    threshold = float(bundle["threshold"] if override is None else override)
     predicted_class = int(crash_score >= threshold)
 
     return {

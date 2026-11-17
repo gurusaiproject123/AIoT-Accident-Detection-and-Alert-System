@@ -13,7 +13,7 @@ export default function Login() {
   const pending=useRef(false);
   const busy=submitting || auth.loading;
   const disabled=busy || !auth.configured || Boolean(auth.session);
-  const message=feedback || auth.error || (auth.loading ? 'Verifying account access…' : '');
+  const message=feedback || auth.error || (auth.loading ? 'Verifying account access...' : '');
 
   useEffect(()=>{
     if (auth.profile && !auth.loading && !auth.error) navigate(homeForProfile(auth.profile),{replace:true});
@@ -53,6 +53,20 @@ export default function Login() {
           <p className="login-eyebrow">ACCOUNT ACCESS</p>
           <h2 id="login-heading">Welcome back</h2>
           <p className="login-description">Sign in with the email and password assigned to your account.</p>
+          {auth.session?.password_change_required && <form onSubmit={async event=>{
+            event.preventDefault(); if (submitting) return;
+            const values=new FormData(event.currentTarget);
+            setSubmitting(true);setFeedback('');
+            try {await auth.changePassword(String(values.get('current')),String(values.get('new')));}
+            catch(error){setFeedback(error.message);}
+            finally{setSubmitting(false);}
+          }}>
+            <h3>Set your local password</h3>
+            <p>Replace the temporary password before opening your dashboard.</p>
+            <label>Temporary password<input name="current" type="password" autoComplete="current-password" required /></label>
+            <label>New password<input name="new" type="password" autoComplete="new-password" minLength={12} maxLength={128} required /></label>
+            <button className="login-submit" disabled={submitting}>Save password</button>
+          </form>}
           <form onSubmit={handleSubmit} aria-busy={busy}>
             <label htmlFor="email">Email address</label>
             <input id="email" name="email" type="email" autoComplete="username" placeholder="you@example.com" disabled={disabled} required />
@@ -62,7 +76,7 @@ export default function Login() {
               <button type="button" className="login-password-toggle" aria-controls="password" aria-pressed={showPassword} disabled={disabled} onClick={()=>setShowPassword(value=>!value)}>{showPassword?'Hide':'Show'}</button>
             </div>
             <div className={`login-message login-message--${message && !busy ? 'error':'idle'}`} role="status" aria-live="polite">{message}</div>
-            <button className="login-submit" type="submit" disabled={disabled}>{busy?'Signing in…':'Sign in'} <span aria-hidden="true">→</span></button>
+            <button className="login-submit" type="submit" disabled={disabled}>{busy?'Signing in...':'Sign in'} <span aria-hidden="true">&rarr;</span></button>
           </form>
           <div className="login-demo">
             {auth.session ? <>
@@ -72,7 +86,7 @@ export default function Login() {
             </> : <p>Accounts are created by the system administrator. Your verified role determines whether you open the hospital, superuser or separate vehicle interface.</p>}
           </div>
           <p className="login-support">Need an account or help signing in?<br />Contact your system administrator.</p>
-          <p className="login-preview"><span aria-hidden="true">◌</span> {auth.configured?'Supabase configured · Access verified through FastAPI':'Setup required · Configure Supabase and the FastAPI connection'}</p>
+          <p className="login-preview"><span aria-hidden="true">&rarr;</span> {auth.configured?'Authentication configured - Access verified through FastAPI':'Setup required - Configure the FastAPI connection'}</p>
         </div>
         <p className="login-form-footer">Accident Detection &amp; Alert System</p>
       </section>

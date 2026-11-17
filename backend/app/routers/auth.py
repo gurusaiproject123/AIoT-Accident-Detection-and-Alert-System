@@ -1,9 +1,10 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Response, Header
 from httpx import HTTPError
 from postgrest.exceptions import APIError
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, SecretStr, Field
+from app.core.config import get_settings
 
 from app.core.database import get_supabase_admin
 from app.core.security import get_current_user
@@ -11,6 +12,51 @@ from app.schemas.auth import CurrentUser
 
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
+
+
+class LocalLogin(BaseModel):
+    email: EmailStr
+    password: SecretStr = Field(max_length=128)
+
+
+def local_only():
+    if get_settings().database_backend != "mysql":
+        raise HTTPException(404, "Local authentication is not enabled.")
+
+
+@router.get("/config")
+def auth_configuration(response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return {"provider": "local" if get_settings().database_backend == "mysql" else "supabase"}
+
+
+@router.post("/login")
+def local_login(payload: LocalLogin, response: Response):
+    local_only()
+    from app.localdb.auth import sign_in
+    response.headers["Cache-Control"] = "no-store"
+    return {"session": sign_in(str(payload.email), payload.password.get_secret_value())}
+
+
+@router.post("/logout")
+def local_logout(authorization: str = Header(default="")):
+    local_only()
+    from app.localdb.auth import logout
+    logout(authorization.removeprefix("Bearer "))
+    return {"signed_out": True}
+
+
+class PasswordChange(BaseModel):
+    current_password: SecretStr
+    new_password: SecretStr = Field(min_length=12, max_length=128)
+
+
+@router.post("/password")
+def local_password_change(payload: PasswordChange, authorization: str = Header(default="")):
+    local_only()
+    from app.localdb.auth import change_password
+    change_password(authorization.removeprefix("Bearer "),payload.current_password.get_secret_value(),payload.new_password.get_secret_value())
+    return {"changed": True}
 
 
 class AssignedHospital(BaseModel):

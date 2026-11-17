@@ -1,0 +1,4 @@
+# Install into the same virtual environment that runs FastAPI.
+-r requirements.txt
+-r requirements-model.txt
+PyMySQL[rsa]==1.2.4

@@ -42,6 +42,10 @@ def set_token_verifier(verifier: TokenVerifier | None) -> None:
 def _verify_via_supabase(token: str) -> AuthenticatedUser:
     """Verify the token and read the account's role and assignments."""
     settings = get_settings()
+    if settings.database_backend == "mysql":
+        from app.core.security import get_current_user as verified_profile
+        profile = verified_profile(HTTPAuthorizationCredentials(scheme="Bearer", credentials=token))
+        return AuthenticatedUser.model_validate(profile.model_dump())
     key = settings.supabase_service_role_key.get_secret_value()
 
     if not settings.supabase_url or not key:

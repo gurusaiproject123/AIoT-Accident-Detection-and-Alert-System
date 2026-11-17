@@ -1,0 +1,1248 @@
+﻿{
+    "incident_notifications":  {
+                                   "description":  "Hospital routing. Acknowledgment confirms receipt; acceptance records willingness to respond. Neither means an ambulance was dispatched.",
+                                   "required":  [
+                                                    "id",
+                                                    "incident_id",
+                                                    "hospital_id",
+                                                    "escalation_level",
+                                                    "routing_reason",
+                                                    "status",
+                                                    "notified_at",
+                                                    "created_at",
+                                                    "updated_at"
+                                                ],
+                                   "properties":  {
+                                                      "id":  {
+                                                                 "default":  "gen_random_uuid()",
+                                                                 "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                                 "format":  "uuid",
+                                                                 "type":  "string"
+                                                             },
+                                                      "incident_id":  {
+                                                                          "description":  "Note:\nThis is a Foreign Key to `incidents.id`.\u003cfk table=\u0027incidents\u0027 column=\u0027id\u0027/\u003e",
+                                                                          "format":  "uuid",
+                                                                          "type":  "string"
+                                                                      },
+                                                      "hospital_id":  {
+                                                                          "description":  "Note:\nThis is a Foreign Key to `hospitals.id`.\u003cfk table=\u0027hospitals\u0027 column=\u0027id\u0027/\u003e",
+                                                                          "format":  "uuid",
+                                                                          "type":  "string"
+                                                                      },
+                                                      "escalation_level":  {
+                                                                               "default":  1,
+                                                                               "format":  "int32",
+                                                                               "type":  "integer"
+                                                                           },
+                                                      "routing_reason":  {
+                                                                             "default":  "nearest",
+                                                                             "format":  "text",
+                                                                             "type":  "string"
+                                                                         },
+                                                      "routed_by":  {
+                                                                        "format":  "uuid",
+                                                                        "type":  "string"
+                                                                    },
+                                                      "distance_km":  {
+                                                                          "format":  "numeric",
+                                                                          "type":  "number"
+                                                                      },
+                                                      "status":  {
+                                                                     "default":  "notified",
+                                                                     "enum":  [
+                                                                                  "notified",
+                                                                                  "acknowledged",
+                                                                                  "accepted",
+                                                                                  "declined",
+                                                                                  "timed_out",
+                                                                                  "withdrawn"
+                                                                              ],
+                                                                     "format":  "public.notification_status",
+                                                                     "type":  "string"
+                                                                 },
+                                                      "notified_at":  {
+                                                                          "default":  "now()",
+                                                                          "format":  "timestamp with time zone",
+                                                                          "type":  "string"
+                                                                      },
+                                                      "response_deadline":  {
+                                                                                "format":  "timestamp with time zone",
+                                                                                "type":  "string"
+                                                                            },
+                                                      "acknowledged_at":  {
+                                                                              "format":  "timestamp with time zone",
+                                                                              "type":  "string"
+                                                                          },
+                                                      "acknowledged_by":  {
+                                                                              "format":  "uuid",
+                                                                              "type":  "string"
+                                                                          },
+                                                      "responded_at":  {
+                                                                           "format":  "timestamp with time zone",
+                                                                           "type":  "string"
+                                                                       },
+                                                      "responded_by":  {
+                                                                           "format":  "uuid",
+                                                                           "type":  "string"
+                                                                       },
+                                                      "decline_reason":  {
+                                                                             "format":  "text",
+                                                                             "type":  "string"
+                                                                         },
+                                                      "created_at":  {
+                                                                         "default":  "now()",
+                                                                         "format":  "timestamp with time zone",
+                                                                         "type":  "string"
+                                                                     },
+                                                      "updated_at":  {
+                                                                         "default":  "now()",
+                                                                         "format":  "timestamp with time zone",
+                                                                         "type":  "string"
+                                                                     }
+                                                  },
+                                   "type":  "object"
+                               },
+    "vehicle_commands":  {
+                             "description":  "Command audit only. Send driving commands over a live channel, not by polling this table. Firmware must reject stale/replayed commands and stop independently when heartbeats stop.",
+                             "required":  [
+                                              "id",
+                                              "control_session_id",
+                                              "sequence_number",
+                                              "command",
+                                              "throttle",
+                                              "issued_at",
+                                              "expires_at",
+                                              "status"
+                                          ],
+                             "properties":  {
+                                                "id":  {
+                                                           "default":  "gen_random_uuid()",
+                                                           "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                           "format":  "uuid",
+                                                           "type":  "string"
+                                                       },
+                                                "control_session_id":  {
+                                                                           "description":  "Note:\nThis is a Foreign Key to `vehicle_control_sessions.id`.\u003cfk table=\u0027vehicle_control_sessions\u0027 column=\u0027id\u0027/\u003e",
+                                                                           "format":  "uuid",
+                                                                           "type":  "string"
+                                                                       },
+                                                "sequence_number":  {
+                                                                        "format":  "int64",
+                                                                        "type":  "integer"
+                                                                    },
+                                                "command":  {
+                                                                "format":  "text",
+                                                                "type":  "string"
+                                                            },
+                                                "throttle":  {
+                                                                 "default":  0,
+                                                                 "format":  "int32",
+                                                                 "type":  "integer"
+                                                             },
+                                                "issued_at":  {
+                                                                  "default":  "now()",
+                                                                  "format":  "timestamp with time zone",
+                                                                  "type":  "string"
+                                                              },
+                                                "expires_at":  {
+                                                                   "format":  "timestamp with time zone",
+                                                                   "type":  "string"
+                                                               },
+                                                "status":  {
+                                                               "default":  "issued",
+                                                               "format":  "text",
+                                                               "type":  "string"
+                                                           },
+                                                "acknowledged_at":  {
+                                                                        "format":  "timestamp with time zone",
+                                                                        "type":  "string"
+                                                                    },
+                                                "rejection_reason":  {
+                                                                         "format":  "text",
+                                                                         "type":  "string"
+                                                                     }
+                                            },
+                             "type":  "object"
+                         },
+    "incidents":  {
+                      "description":  "Suspected accidents. Status is the system-wide lifecycle; per-hospital state lives in incident_notifications.",
+                      "required":  [
+                                       "id",
+                                       "code",
+                                       "device_id",
+                                       "detected_at",
+                                       "status",
+                                       "cancellation_window_seconds",
+                                       "cancellation_outcome",
+                                       "created_at",
+                                       "updated_at",
+                                       "occurred_at_estimated"
+                                   ],
+                      "properties":  {
+                                         "id":  {
+                                                    "default":  "gen_random_uuid()",
+                                                    "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                    "format":  "uuid",
+                                                    "type":  "string"
+                                                },
+                                         "code":  {
+                                                      "default":  "(\u0027INC-\u0027::text || (nextval(\u0027public.incident_code_seq\u0027::regclass))::text)",
+                                                      "format":  "text",
+                                                      "type":  "string"
+                                                  },
+                                         "device_id":  {
+                                                           "description":  "Note:\nThis is a Foreign Key to `devices.id`.\u003cfk table=\u0027devices\u0027 column=\u0027id\u0027/\u003e",
+                                                           "format":  "uuid",
+                                                           "type":  "string"
+                                                       },
+                                         "vehicle_id":  {
+                                                            "description":  "Note:\nThis is a Foreign Key to `vehicles.id`.\u003cfk table=\u0027vehicles\u0027 column=\u0027id\u0027/\u003e",
+                                                            "format":  "uuid",
+                                                            "type":  "string"
+                                                        },
+                                         "prediction_id":  {
+                                                               "description":  "Note:\nThis is a Foreign Key to `model_predictions.id`.\u003cfk table=\u0027model_predictions\u0027 column=\u0027id\u0027/\u003e",
+                                                               "format":  "int64",
+                                                               "type":  "integer"
+                                                           },
+                                         "detected_at":  {
+                                                             "default":  "now()",
+                                                             "format":  "timestamp with time zone",
+                                                             "type":  "string"
+                                                         },
+                                         "latitude":  {
+                                                          "format":  "double precision",
+                                                          "type":  "number"
+                                                      },
+                                         "longitude":  {
+                                                           "format":  "double precision",
+                                                           "type":  "number"
+                                                       },
+                                         "location_label":  {
+                                                                "format":  "text",
+                                                                "type":  "string"
+                                                            },
+                                         "location_recorded_at":  {
+                                                                      "format":  "timestamp with time zone",
+                                                                      "type":  "string"
+                                                                  },
+                                         "location_accuracy_m":  {
+                                                                     "format":  "real",
+                                                                     "type":  "number"
+                                                                 },
+                                         "model_score":  {
+                                                             "format":  "numeric",
+                                                             "type":  "number"
+                                                         },
+                                         "impact_summary":  {
+                                                                "format":  "text",
+                                                                "type":  "string"
+                                                            },
+                                         "status":  {
+                                                        "default":  "cancellation_window",
+                                                        "enum":  [
+                                                                     "cancellation_window",
+                                                                     "cancelled",
+                                                                     "notified",
+                                                                     "escalated",
+                                                                     "acknowledged",
+                                                                     "accepted",
+                                                                     "closed"
+                                                                 ],
+                                                        "format":  "public.incident_status",
+                                                        "type":  "string"
+                                                    },
+                                         "cancellation_window_seconds":  {
+                                                                             "default":  30,
+                                                                             "format":  "int32",
+                                                                             "type":  "integer"
+                                                                         },
+                                         "cancellation_deadline":  {
+                                                                       "format":  "timestamp with time zone",
+                                                                       "type":  "string"
+                                                                   },
+                                         "cancellation_outcome":  {
+                                                                      "default":  "pending",
+                                                                      "enum":  [
+                                                                                   "pending",
+                                                                                   "expired",
+                                                                                   "cancelled"
+                                                                               ],
+                                                                      "format":  "public.cancellation_outcome",
+                                                                      "type":  "string"
+                                                                  },
+                                         "cancellation_resolved_at":  {
+                                                                          "format":  "timestamp with time zone",
+                                                                          "type":  "string"
+                                                                      },
+                                         "cancelled_by":  {
+                                                              "format":  "uuid",
+                                                              "type":  "string"
+                                                          },
+                                         "cancelled_by_label":  {
+                                                                    "format":  "text",
+                                                                    "type":  "string"
+                                                                },
+                                         "cancel_reason":  {
+                                                               "format":  "text",
+                                                               "type":  "string"
+                                                           },
+                                         "closed_at":  {
+                                                           "format":  "timestamp with time zone",
+                                                           "type":  "string"
+                                                       },
+                                         "closed_by":  {
+                                                           "format":  "uuid",
+                                                           "type":  "string"
+                                                       },
+                                         "closing_note":  {
+                                                              "format":  "text",
+                                                              "type":  "string"
+                                                          },
+                                         "created_at":  {
+                                                            "default":  "now()",
+                                                            "format":  "timestamp with time zone",
+                                                            "type":  "string"
+                                                        },
+                                         "updated_at":  {
+                                                            "default":  "now()",
+                                                            "format":  "timestamp with time zone",
+                                                            "type":  "string"
+                                                        },
+                                         "occurred_at":  {
+                                                             "description":  "Estimated/known event time, distinct from server detection time. Leave null if unavailable.",
+                                                             "format":  "timestamp with time zone",
+                                                             "type":  "string"
+                                                         },
+                                         "occurred_at_estimated":  {
+                                                                       "default":  false,
+                                                                       "format":  "boolean",
+                                                                       "type":  "boolean"
+                                                                   }
+                                     },
+                      "type":  "object"
+                  },
+    "vehicles":  {
+                     "required":  [
+                                      "id",
+                                      "registration",
+                                      "created_at",
+                                      "updated_at"
+                                  ],
+                     "properties":  {
+                                        "id":  {
+                                                   "default":  "gen_random_uuid()",
+                                                   "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                   "format":  "uuid",
+                                                   "type":  "string"
+                                               },
+                                        "registration":  {
+                                                             "format":  "text",
+                                                             "type":  "string"
+                                                         },
+                                        "make":  {
+                                                     "format":  "text",
+                                                     "type":  "string"
+                                                 },
+                                        "model":  {
+                                                      "format":  "text",
+                                                      "type":  "string"
+                                                  },
+                                        "colour":  {
+                                                       "format":  "text",
+                                                       "type":  "string"
+                                                   },
+                                        "owner_id":  {
+                                                         "description":  "Note:\nThis is a Foreign Key to `vehicle_owners.id`.\u003cfk table=\u0027vehicle_owners\u0027 column=\u0027id\u0027/\u003e",
+                                                         "format":  "uuid",
+                                                         "type":  "string"
+                                                     },
+                                        "created_at":  {
+                                                           "default":  "now()",
+                                                           "format":  "timestamp with time zone",
+                                                           "type":  "string"
+                                                       },
+                                        "updated_at":  {
+                                                           "default":  "now()",
+                                                           "format":  "timestamp with time zone",
+                                                           "type":  "string"
+                                                       }
+                                    },
+                     "type":  "object"
+                 },
+    "telemetry_packets":  {
+                              "required":  [
+                                               "id",
+                                               "device_id",
+                                               "boot_id",
+                                               "sequence_number",
+                                               "sample_count",
+                                               "sampling_hz",
+                                               "acceleration_unit",
+                                               "rotation_unit",
+                                               "recorded_start",
+                                               "recorded_end",
+                                               "received_at",
+                                               "payload_sha256"
+                                           ],
+                              "properties":  {
+                                                 "id":  {
+                                                            "default":  "gen_random_uuid()",
+                                                            "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                            "format":  "uuid",
+                                                            "type":  "string"
+                                                        },
+                                                 "device_id":  {
+                                                                   "description":  "Note:\nThis is a Foreign Key to `devices.id`.\u003cfk table=\u0027devices\u0027 column=\u0027id\u0027/\u003e",
+                                                                   "format":  "uuid",
+                                                                   "type":  "string"
+                                                               },
+                                                 "boot_id":  {
+                                                                 "format":  "uuid",
+                                                                 "type":  "string"
+                                                             },
+                                                 "sequence_number":  {
+                                                                         "format":  "int64",
+                                                                         "type":  "integer"
+                                                                     },
+                                                 "sample_count":  {
+                                                                      "format":  "int32",
+                                                                      "type":  "integer"
+                                                                  },
+                                                 "sampling_hz":  {
+                                                                     "format":  "numeric",
+                                                                     "type":  "number"
+                                                                 },
+                                                 "acceleration_unit":  {
+                                                                           "default":  "m/s^2",
+                                                                           "format":  "text",
+                                                                           "type":  "string"
+                                                                       },
+                                                 "rotation_unit":  {
+                                                                       "default":  "deg/s",
+                                                                       "format":  "text",
+                                                                       "type":  "string"
+                                                                   },
+                                                 "recorded_start":  {
+                                                                        "format":  "timestamp with time zone",
+                                                                        "type":  "string"
+                                                                    },
+                                                 "recorded_end":  {
+                                                                      "format":  "timestamp with time zone",
+                                                                      "type":  "string"
+                                                                  },
+                                                 "received_at":  {
+                                                                     "default":  "now()",
+                                                                     "format":  "timestamp with time zone",
+                                                                     "type":  "string"
+                                                                 },
+                                                 "payload_sha256":  {
+                                                                        "format":  "text",
+                                                                        "type":  "string"
+                                                                    }
+                                             },
+                              "type":  "object"
+                          },
+    "vehicle_owners":  {
+                           "description":  "Registered owner contacts. The owner is NOT assumed to be the driver or an occupant. Visible only to superusers and hospitals assigned to a related incident.",
+                           "required":  [
+                                            "id",
+                                            "full_name",
+                                            "relationship",
+                                            "created_at",
+                                            "updated_at"
+                                        ],
+                           "properties":  {
+                                              "id":  {
+                                                         "default":  "gen_random_uuid()",
+                                                         "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                         "format":  "uuid",
+                                                         "type":  "string"
+                                                     },
+                                              "full_name":  {
+                                                                "format":  "text",
+                                                                "type":  "string"
+                                                            },
+                                              "phone":  {
+                                                            "format":  "text",
+                                                            "type":  "string"
+                                                        },
+                                              "email":  {
+                                                            "format":  "extensions.citext",
+                                                            "type":  "string"
+                                                        },
+                                              "relationship":  {
+                                                                   "default":  "Registered owner",
+                                                                   "format":  "text",
+                                                                   "type":  "string"
+                                                               },
+                                              "created_at":  {
+                                                                 "default":  "now()",
+                                                                 "format":  "timestamp with time zone",
+                                                                 "type":  "string"
+                                                             },
+                                              "updated_at":  {
+                                                                 "default":  "now()",
+                                                                 "format":  "timestamp with time zone",
+                                                                 "type":  "string"
+                                                             },
+                                              "user_id":  {
+                                                              "description":  "Optional login for the registered owner. When linked, the profile must be car_owner with no hospital. A login cannot be linked to several owner identities. Existing vehicles.owner_id supplies the one-owner-to-many-cars relationship.\n\nNote:\nThis is a Foreign Key to `profiles.id`.\u003cfk table=\u0027profiles\u0027 column=\u0027id\u0027/\u003e",
+                                                              "format":  "uuid",
+                                                              "type":  "string"
+                                                          }
+                                          },
+                           "type":  "object"
+                       },
+    "profiles":  {
+                     "description":  "Verified application role and hospital assignment. Returned by GET /api/auth/me.",
+                     "required":  [
+                                      "id",
+                                      "full_name",
+                                      "email",
+                                      "role",
+                                      "status",
+                                      "created_at",
+                                      "updated_at"
+                                  ],
+                     "properties":  {
+                                        "id":  {
+                                                   "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                   "format":  "uuid",
+                                                   "type":  "string"
+                                               },
+                                        "full_name":  {
+                                                          "default":  "",
+                                                          "format":  "text",
+                                                          "type":  "string"
+                                                      },
+                                        "email":  {
+                                                      "format":  "extensions.citext",
+                                                      "type":  "string"
+                                                  },
+                                        "role":  {
+                                                     "description":  "Only hospital_staff and superuser are permitted by constraint. The legacy enum label unassigned is retained for migration compatibility but cannot be stored in profiles.",
+                                                     "enum":  [
+                                                                  "superuser",
+                                                                  "hospital_staff",
+                                                                  "unassigned",
+                                                                  "car_owner"
+                                                              ],
+                                                     "format":  "public.app_role",
+                                                     "type":  "string"
+                                                 },
+                                        "hospital_id":  {
+                                                            "description":  "Required for each hospital staff member; NULL for superusers. Not unique: many staff may belong to one hospital.\n\nNote:\nThis is a Foreign Key to `hospitals.id`.\u003cfk table=\u0027hospitals\u0027 column=\u0027id\u0027/\u003e",
+                                                            "format":  "uuid",
+                                                            "type":  "string"
+                                                        },
+                                        "status":  {
+                                                       "default":  "active",
+                                                       "enum":  [
+                                                                    "active",
+                                                                    "suspended"
+                                                                ],
+                                                       "format":  "public.account_status",
+                                                       "type":  "string"
+                                                   },
+                                        "last_sign_in_at":  {
+                                                                "format":  "timestamp with time zone",
+                                                                "type":  "string"
+                                                            },
+                                        "created_at":  {
+                                                           "default":  "now()",
+                                                           "format":  "timestamp with time zone",
+                                                           "type":  "string"
+                                                       },
+                                        "updated_at":  {
+                                                           "default":  "now()",
+                                                           "format":  "timestamp with time zone",
+                                                           "type":  "string"
+                                                       }
+                                    },
+                     "type":  "object"
+                 },
+    "vehicle_control_sessions":  {
+                                     "description":  "Short fixed leases (max 30s). Backend must close expired lease and create a new one atomically; do not indefinitely extend an expired session.",
+                                     "required":  [
+                                                      "id",
+                                                      "vehicle_id",
+                                                      "device_id",
+                                                      "operator_id",
+                                                      "started_at",
+                                                      "expires_at"
+                                                  ],
+                                     "properties":  {
+                                                        "id":  {
+                                                                   "default":  "gen_random_uuid()",
+                                                                   "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                                   "format":  "uuid",
+                                                                   "type":  "string"
+                                                               },
+                                                        "vehicle_id":  {
+                                                                           "description":  "Note:\nThis is a Foreign Key to `vehicles.id`.\u003cfk table=\u0027vehicles\u0027 column=\u0027id\u0027/\u003e",
+                                                                           "format":  "uuid",
+                                                                           "type":  "string"
+                                                                       },
+                                                        "device_id":  {
+                                                                          "description":  "Note:\nThis is a Foreign Key to `devices.id`.\u003cfk table=\u0027devices\u0027 column=\u0027id\u0027/\u003e",
+                                                                          "format":  "uuid",
+                                                                          "type":  "string"
+                                                                      },
+                                                        "operator_id":  {
+                                                                            "description":  "Note:\nThis is a Foreign Key to `profiles.id`.\u003cfk table=\u0027profiles\u0027 column=\u0027id\u0027/\u003e",
+                                                                            "format":  "uuid",
+                                                                            "type":  "string"
+                                                                        },
+                                                        "started_at":  {
+                                                                           "default":  "now()",
+                                                                           "format":  "timestamp with time zone",
+                                                                           "type":  "string"
+                                                                       },
+                                                        "expires_at":  {
+                                                                           "format":  "timestamp with time zone",
+                                                                           "type":  "string"
+                                                                       },
+                                                        "ended_at":  {
+                                                                         "format":  "timestamp with time zone",
+                                                                         "type":  "string"
+                                                                     },
+                                                        "end_reason":  {
+                                                                           "format":  "text",
+                                                                           "type":  "string"
+                                                                       }
+                                                    },
+                                     "type":  "object"
+                                 },
+    "devices":  {
+                    "required":  [
+                                     "id",
+                                     "device_code",
+                                     "status",
+                                     "gps_status",
+                                     "is_active",
+                                     "created_at",
+                                     "updated_at"
+                                 ],
+                    "properties":  {
+                                       "id":  {
+                                                  "default":  "gen_random_uuid()",
+                                                  "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                  "format":  "uuid",
+                                                  "type":  "string"
+                                              },
+                                       "device_code":  {
+                                                           "format":  "text",
+                                                           "type":  "string"
+                                                       },
+                                       "vehicle_id":  {
+                                                          "description":  "Note:\nThis is a Foreign Key to `vehicles.id`.\u003cfk table=\u0027vehicles\u0027 column=\u0027id\u0027/\u003e",
+                                                          "format":  "uuid",
+                                                          "type":  "string"
+                                                      },
+                                       "label":  {
+                                                     "format":  "text",
+                                                     "type":  "string"
+                                                 },
+                                       "status":  {
+                                                      "default":  "offline",
+                                                      "enum":  [
+                                                                   "online",
+                                                                   "offline",
+                                                                   "fault"
+                                                               ],
+                                                      "format":  "public.device_status",
+                                                      "type":  "string"
+                                                  },
+                                       "gps_status":  {
+                                                          "default":  "none",
+                                                          "enum":  [
+                                                                       "fix",
+                                                                       "stale",
+                                                                       "none"
+                                                                   ],
+                                                          "format":  "public.gps_status",
+                                                          "type":  "string"
+                                                      },
+                                       "firmware_version":  {
+                                                                "format":  "text",
+                                                                "type":  "string"
+                                                            },
+                                       "last_seen_at":  {
+                                                            "format":  "timestamp with time zone",
+                                                            "type":  "string"
+                                                        },
+                                       "last_latitude":  {
+                                                             "format":  "double precision",
+                                                             "type":  "number"
+                                                         },
+                                       "last_longitude":  {
+                                                              "format":  "double precision",
+                                                              "type":  "number"
+                                                          },
+                                       "last_location_at":  {
+                                                                "format":  "timestamp with time zone",
+                                                                "type":  "string"
+                                                            },
+                                       "secret_hash":  {
+                                                           "description":  "Hashed device credential used by FastAPI to authenticate telemetry. Not readable by any client role.",
+                                                           "format":  "text",
+                                                           "type":  "string"
+                                                       },
+                                       "is_active":  {
+                                                         "default":  true,
+                                                         "format":  "boolean",
+                                                         "type":  "boolean"
+                                                     },
+                                       "registered_by":  {
+                                                             "format":  "uuid",
+                                                             "type":  "string"
+                                                         },
+                                       "created_at":  {
+                                                          "default":  "now()",
+                                                          "format":  "timestamp with time zone",
+                                                          "type":  "string"
+                                                      },
+                                       "updated_at":  {
+                                                          "default":  "now()",
+                                                          "format":  "timestamp with time zone",
+                                                          "type":  "string"
+                                                      }
+                                   },
+                    "type":  "object"
+                },
+    "incident_notes":  {
+                           "required":  [
+                                            "id",
+                                            "incident_id",
+                                            "author_label",
+                                            "body",
+                                            "created_at"
+                                        ],
+                           "properties":  {
+                                              "id":  {
+                                                         "default":  "gen_random_uuid()",
+                                                         "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                         "format":  "uuid",
+                                                         "type":  "string"
+                                                     },
+                                              "incident_id":  {
+                                                                  "description":  "Note:\nThis is a Foreign Key to `incidents.id`.\u003cfk table=\u0027incidents\u0027 column=\u0027id\u0027/\u003e",
+                                                                  "format":  "uuid",
+                                                                  "type":  "string"
+                                                              },
+                                              "hospital_id":  {
+                                                                  "description":  "Note:\nThis is a Foreign Key to `hospitals.id`.\u003cfk table=\u0027hospitals\u0027 column=\u0027id\u0027/\u003e",
+                                                                  "format":  "uuid",
+                                                                  "type":  "string"
+                                                              },
+                                              "author_id":  {
+                                                                "format":  "uuid",
+                                                                "type":  "string"
+                                                            },
+                                              "author_label":  {
+                                                                   "format":  "text",
+                                                                   "type":  "string"
+                                                               },
+                                              "body":  {
+                                                           "format":  "text",
+                                                           "type":  "string"
+                                                       },
+                                              "created_at":  {
+                                                                 "default":  "now()",
+                                                                 "format":  "timestamp with time zone",
+                                                                 "type":  "string"
+                                                             }
+                                          },
+                           "type":  "object"
+                       },
+    "system_settings":  {
+                            "required":  [
+                                             "key",
+                                             "value",
+                                             "updated_at"
+                                         ],
+                            "properties":  {
+                                               "key":  {
+                                                           "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                           "format":  "text",
+                                                           "type":  "string"
+                                                       },
+                                               "value":  {
+                                                             "format":  "jsonb"
+                                                         },
+                                               "description":  {
+                                                                   "format":  "text",
+                                                                   "type":  "string"
+                                                               },
+                                               "updated_by":  {
+                                                                  "format":  "uuid",
+                                                                  "type":  "string"
+                                                              },
+                                               "updated_at":  {
+                                                                  "default":  "now()",
+                                                                  "format":  "timestamp with time zone",
+                                                                  "type":  "string"
+                                                              }
+                                           },
+                            "type":  "object"
+                        },
+    "false_alarm_reports":  {
+                                "description":  "A hospital\u0027s report of a possible false alarm for superuser review. Does not cancel the incident.",
+                                "required":  [
+                                                 "id",
+                                                 "incident_id",
+                                                 "reason",
+                                                 "review_status",
+                                                 "created_at",
+                                                 "updated_at"
+                                             ],
+                                "properties":  {
+                                                   "id":  {
+                                                              "default":  "gen_random_uuid()",
+                                                              "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                              "format":  "uuid",
+                                                              "type":  "string"
+                                                          },
+                                                   "incident_id":  {
+                                                                       "description":  "Note:\nThis is a Foreign Key to `incidents.id`.\u003cfk table=\u0027incidents\u0027 column=\u0027id\u0027/\u003e",
+                                                                       "format":  "uuid",
+                                                                       "type":  "string"
+                                                                   },
+                                                   "hospital_id":  {
+                                                                       "description":  "Note:\nThis is a Foreign Key to `hospitals.id`.\u003cfk table=\u0027hospitals\u0027 column=\u0027id\u0027/\u003e",
+                                                                       "format":  "uuid",
+                                                                       "type":  "string"
+                                                                   },
+                                                   "reported_by":  {
+                                                                       "format":  "uuid",
+                                                                       "type":  "string"
+                                                                   },
+                                                   "reason":  {
+                                                                  "format":  "text",
+                                                                  "type":  "string"
+                                                              },
+                                                   "review_status":  {
+                                                                         "default":  "open",
+                                                                         "enum":  [
+                                                                                      "open",
+                                                                                      "confirmed_false_alarm",
+                                                                                      "rejected"
+                                                                                  ],
+                                                                         "format":  "public.false_alarm_review_status",
+                                                                         "type":  "string"
+                                                                     },
+                                                   "reviewed_by":  {
+                                                                       "format":  "uuid",
+                                                                       "type":  "string"
+                                                                   },
+                                                   "reviewed_at":  {
+                                                                       "format":  "timestamp with time zone",
+                                                                       "type":  "string"
+                                                                   },
+                                                   "review_note":  {
+                                                                       "format":  "text",
+                                                                       "type":  "string"
+                                                                   },
+                                                   "created_at":  {
+                                                                      "default":  "now()",
+                                                                      "format":  "timestamp with time zone",
+                                                                      "type":  "string"
+                                                                  },
+                                                   "updated_at":  {
+                                                                      "default":  "now()",
+                                                                      "format":  "timestamp with time zone",
+                                                                      "type":  "string"
+                                                                  }
+                                               },
+                                "type":  "object"
+                            },
+    "model_predictions":  {
+                              "required":  [
+                                               "id",
+                                               "device_id",
+                                               "window_start",
+                                               "window_end",
+                                               "model_name",
+                                               "model_version",
+                                               "score",
+                                               "threshold",
+                                               "is_suspected_accident",
+                                               "created_at"
+                                           ],
+                              "properties":  {
+                                                 "id":  {
+                                                            "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                            "format":  "int64",
+                                                            "type":  "integer"
+                                                        },
+                                                 "device_id":  {
+                                                                   "description":  "Note:\nThis is a Foreign Key to `devices.id`.\u003cfk table=\u0027devices\u0027 column=\u0027id\u0027/\u003e",
+                                                                   "format":  "uuid",
+                                                                   "type":  "string"
+                                                               },
+                                                 "window_start":  {
+                                                                      "format":  "timestamp with time zone",
+                                                                      "type":  "string"
+                                                                  },
+                                                 "window_end":  {
+                                                                    "format":  "timestamp with time zone",
+                                                                    "type":  "string"
+                                                                },
+                                                 "model_name":  {
+                                                                    "default":  "random_forest",
+                                                                    "format":  "text",
+                                                                    "type":  "string"
+                                                                },
+                                                 "model_version":  {
+                                                                       "format":  "text",
+                                                                       "type":  "string"
+                                                                   },
+                                                 "score":  {
+                                                               "description":  "Classifier output. NOT a calibrated crash probability or injury-severity estimate.",
+                                                               "format":  "numeric",
+                                                               "type":  "number"
+                                                           },
+                                                 "threshold":  {
+                                                                   "format":  "numeric",
+                                                                   "type":  "number"
+                                                               },
+                                                 "is_suspected_accident":  {
+                                                                               "format":  "boolean",
+                                                                               "type":  "boolean"
+                                                                           },
+                                                 "features":  {
+                                                                  "format":  "jsonb"
+                                                              },
+                                                 "created_at":  {
+                                                                    "default":  "now()",
+                                                                    "format":  "timestamp with time zone",
+                                                                    "type":  "string"
+                                                                },
+                                                 "packet_id":  {
+                                                                   "description":  "Note:\nThis is a Foreign Key to `telemetry_packets.id`.\u003cfk table=\u0027telemetry_packets\u0027 column=\u0027id\u0027/\u003e",
+                                                                   "format":  "uuid",
+                                                                   "type":  "string"
+                                                               }
+                                             },
+                              "type":  "object"
+                          },
+    "hospitals":  {
+                      "description":  "Hospitals that can receive incident notifications. Managed by superusers.",
+                      "required":  [
+                                       "id",
+                                       "code",
+                                       "name",
+                                       "city",
+                                       "phone",
+                                       "email",
+                                       "latitude",
+                                       "longitude",
+                                       "is_active",
+                                       "created_at",
+                                       "updated_at"
+                                   ],
+                      "properties":  {
+                                         "id":  {
+                                                    "default":  "gen_random_uuid()",
+                                                    "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                    "format":  "uuid",
+                                                    "type":  "string"
+                                                },
+                                         "code":  {
+                                                      "default":  "(\u0027HSP-\u0027::text || lpad((nextval(\u0027public.hospital_code_seq\u0027::regclass))::text, 3, \u00270\u0027::text))",
+                                                      "format":  "text",
+                                                      "type":  "string"
+                                                  },
+                                         "name":  {
+                                                      "format":  "text",
+                                                      "type":  "string"
+                                                  },
+                                         "city":  {
+                                                      "format":  "text",
+                                                      "type":  "string"
+                                                  },
+                                         "address":  {
+                                                         "format":  "text",
+                                                         "type":  "string"
+                                                     },
+                                         "phone":  {
+                                                       "format":  "text",
+                                                       "type":  "string"
+                                                   },
+                                         "email":  {
+                                                       "format":  "extensions.citext",
+                                                       "type":  "string"
+                                                   },
+                                         "latitude":  {
+                                                          "format":  "double precision",
+                                                          "type":  "number"
+                                                      },
+                                         "longitude":  {
+                                                           "format":  "double precision",
+                                                           "type":  "number"
+                                                       },
+                                         "is_active":  {
+                                                           "default":  true,
+                                                           "description":  "Only active hospitals are considered for automatic and manual routing.",
+                                                           "format":  "boolean",
+                                                           "type":  "boolean"
+                                                       },
+                                         "notes":  {
+                                                       "format":  "text",
+                                                       "type":  "string"
+                                                   },
+                                         "created_by":  {
+                                                            "format":  "uuid",
+                                                            "type":  "string"
+                                                        },
+                                         "created_at":  {
+                                                            "default":  "now()",
+                                                            "format":  "timestamp with time zone",
+                                                            "type":  "string"
+                                                        },
+                                         "updated_at":  {
+                                                            "default":  "now()",
+                                                            "format":  "timestamp with time zone",
+                                                            "type":  "string"
+                                                        }
+                                     },
+                      "type":  "object"
+                  },
+    "incident_events":  {
+                            "required":  [
+                                             "id",
+                                             "incident_id",
+                                             "event_type",
+                                             "message",
+                                             "actor_label",
+                                             "metadata",
+                                             "created_at"
+                                         ],
+                            "properties":  {
+                                               "id":  {
+                                                          "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                          "format":  "int64",
+                                                          "type":  "integer"
+                                                      },
+                                               "incident_id":  {
+                                                                   "description":  "Note:\nThis is a Foreign Key to `incidents.id`.\u003cfk table=\u0027incidents\u0027 column=\u0027id\u0027/\u003e",
+                                                                   "format":  "uuid",
+                                                                   "type":  "string"
+                                                               },
+                                               "event_type":  {
+                                                                  "enum":  [
+                                                                               "detected",
+                                                                               "window_started",
+                                                                               "window_expired",
+                                                                               "cancelled",
+                                                                               "notified",
+                                                                               "acknowledged",
+                                                                               "accepted",
+                                                                               "declined",
+                                                                               "timed_out",
+                                                                               "escalated",
+                                                                               "false_alarm_reported",
+                                                                               "note",
+                                                                               "closed"
+                                                                           ],
+                                                                  "format":  "public.incident_event_type",
+                                                                  "type":  "string"
+                                                              },
+                                               "message":  {
+                                                               "format":  "text",
+                                                               "type":  "string"
+                                                           },
+                                               "hospital_id":  {
+                                                                   "description":  "Note:\nThis is a Foreign Key to `hospitals.id`.\u003cfk table=\u0027hospitals\u0027 column=\u0027id\u0027/\u003e",
+                                                                   "format":  "uuid",
+                                                                   "type":  "string"
+                                                               },
+                                               "actor_id":  {
+                                                                "format":  "uuid",
+                                                                "type":  "string"
+                                                            },
+                                               "actor_label":  {
+                                                                   "default":  "System",
+                                                                   "format":  "text",
+                                                                   "type":  "string"
+                                                               },
+                                               "metadata":  {
+                                                                "format":  "jsonb"
+                                                            },
+                                               "created_at":  {
+                                                                  "default":  "now()",
+                                                                  "format":  "timestamp with time zone",
+                                                                  "type":  "string"
+                                                              }
+                                           },
+                            "type":  "object"
+                        },
+    "sensor_readings":  {
+                            "description":  "Raw IMU/GPS readings from ESP32 devices. High volume; consider a retention job.",
+                            "required":  [
+                                             "id",
+                                             "device_id",
+                                             "recorded_at",
+                                             "received_at"
+                                         ],
+                            "properties":  {
+                                               "id":  {
+                                                          "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                          "format":  "int64",
+                                                          "type":  "integer"
+                                                      },
+                                               "device_id":  {
+                                                                 "description":  "Note:\nThis is a Foreign Key to `devices.id`.\u003cfk table=\u0027devices\u0027 column=\u0027id\u0027/\u003e",
+                                                                 "format":  "uuid",
+                                                                 "type":  "string"
+                                                             },
+                                               "recorded_at":  {
+                                                                   "format":  "timestamp with time zone",
+                                                                   "type":  "string"
+                                                               },
+                                               "received_at":  {
+                                                                   "default":  "now()",
+                                                                   "format":  "timestamp with time zone",
+                                                                   "type":  "string"
+                                                               },
+                                               "accel_x":  {
+                                                               "format":  "real",
+                                                               "type":  "number"
+                                                           },
+                                               "accel_y":  {
+                                                               "format":  "real",
+                                                               "type":  "number"
+                                                           },
+                                               "accel_z":  {
+                                                               "format":  "real",
+                                                               "type":  "number"
+                                                           },
+                                               "gyro_x":  {
+                                                              "format":  "real",
+                                                              "type":  "number"
+                                                          },
+                                               "gyro_y":  {
+                                                              "format":  "real",
+                                                              "type":  "number"
+                                                          },
+                                               "gyro_z":  {
+                                                              "format":  "real",
+                                                              "type":  "number"
+                                                          },
+                                               "latitude":  {
+                                                                "format":  "double precision",
+                                                                "type":  "number"
+                                                            },
+                                               "longitude":  {
+                                                                 "format":  "double precision",
+                                                                 "type":  "number"
+                                                             },
+                                               "gps_fix":  {
+                                                               "format":  "boolean",
+                                                               "type":  "boolean"
+                                                           },
+                                               "speed_kmh":  {
+                                                                 "format":  "real",
+                                                                 "type":  "number"
+                                                             },
+                                               "raw":  {
+                                                           "format":  "jsonb"
+                                                       },
+                                               "packet_id":  {
+                                                                 "description":  "Note:\nThis is a Foreign Key to `telemetry_packets.id`.\u003cfk table=\u0027telemetry_packets\u0027 column=\u0027id\u0027/\u003e",
+                                                                 "format":  "uuid",
+                                                                 "type":  "string"
+                                                             },
+                                               "sample_index":  {
+                                                                    "format":  "int32",
+                                                                    "type":  "integer"
+                                                                }
+                                           },
+                            "type":  "object"
+                        },
+    "audit_logs":  {
+                       "required":  [
+                                        "id",
+                                        "code",
+                                        "created_at",
+                                        "actor_label",
+                                        "actor_role",
+                                        "category",
+                                        "action",
+                                        "metadata"
+                                    ],
+                       "properties":  {
+                                          "id":  {
+                                                     "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                     "format":  "int64",
+                                                     "type":  "integer"
+                                                 },
+                                          "code":  {
+                                                       "default":  "(\u0027AUD-\u0027::text || lpad((nextval(\u0027public.audit_code_seq\u0027::regclass))::text, 4, \u00270\u0027::text))",
+                                                       "format":  "text",
+                                                       "type":  "string"
+                                                   },
+                                          "created_at":  {
+                                                             "default":  "now()",
+                                                             "format":  "timestamp with time zone",
+                                                             "type":  "string"
+                                                         },
+                                          "actor_id":  {
+                                                           "format":  "uuid",
+                                                           "type":  "string"
+                                                       },
+                                          "actor_label":  {
+                                                              "format":  "text",
+                                                              "type":  "string"
+                                                          },
+                                          "actor_role":  {
+                                                             "format":  "text",
+                                                             "type":  "string"
+                                                         },
+                                          "category":  {
+                                                           "enum":  [
+                                                                        "incident",
+                                                                        "hospital",
+                                                                        "user",
+                                                                        "device",
+                                                                        "system"
+                                                                    ],
+                                                           "format":  "public.audit_category",
+                                                           "type":  "string"
+                                                       },
+                                          "action":  {
+                                                         "format":  "text",
+                                                         "type":  "string"
+                                                     },
+                                          "target_type":  {
+                                                              "format":  "text",
+                                                              "type":  "string"
+                                                          },
+                                          "target_id":  {
+                                                            "format":  "text",
+                                                            "type":  "string"
+                                                        },
+                                          "target_label":  {
+                                                               "format":  "text",
+                                                               "type":  "string"
+                                                           },
+                                          "detail":  {
+                                                         "format":  "text",
+                                                         "type":  "string"
+                                                     },
+                                          "metadata":  {
+                                                           "format":  "jsonb"
+                                                       },
+                                          "ip_address":  {
+                                                             "format":  "inet",
+                                                             "type":  "string"
+                                                         },
+                                          "user_agent":  {
+                                                             "format":  "text",
+                                                             "type":  "string"
+                                                         }
+                                      },
+                       "type":  "object"
+                   }
+}

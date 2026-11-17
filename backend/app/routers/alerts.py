@@ -49,6 +49,10 @@ router = APIRouter(tags=["Hospital Alerts"])
 
 def get_alert_service() -> HospitalAlertService:
     """Dependency returning the shared HospitalAlertService instance."""
+    from app.core.config import get_settings
+    if get_settings().database_backend == "mysql":
+        from app.localdb.hospital import local_hospital_service
+        return local_hospital_service
     return alert_service
 
 

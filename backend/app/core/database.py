@@ -5,6 +5,11 @@ from app.core.config import get_settings
 
 def get_supabase_admin() -> Client:
     settings = get_settings()
+    if settings.database_backend == "mysql":
+        from app.localdb.storage import MySQLDatabase
+        return MySQLDatabase()
+    if settings.database_backend != "supabase":
+        raise ValueError("Unsupported database backend")
 
     return create_client(
         settings.supabase_url,
