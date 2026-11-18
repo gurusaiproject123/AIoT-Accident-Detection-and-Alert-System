@@ -49,7 +49,7 @@ export default function Incidents() {
       <PageHeading
         eyebrow="Superuser / Incident monitoring"
         title="Incidents"
-        subtitle="Every suspected accident recorded by the system, from detection to outcome."
+        subtitle="Every accident detected by the system, from detection to outcome."
         actions={
           <button type="button" className="su-btn su-btn-primary" onClick={refresh}>
             <Icon name="refresh" size={15} /> Refresh incidents

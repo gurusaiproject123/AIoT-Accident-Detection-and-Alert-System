@@ -94,6 +94,32 @@ def test_deadline_acknowledgment_acceptance(database):
     assert database.table('incidents').select('*').eq('id',i['id']).execute().data[0]['status']=='accepted'
 
 
+def test_hospital_alert_includes_registered_details_only_for_assigned_hospital(database):
+    from app.core.auth import AuthenticatedUser
+    from app.services.hospital_inbox import HospitalInbox
+    h,a,s,c,d=seed(); i=incident(d,c)
+    database.rpc('process_incident_deadlines',{}).execute()
+    notification=database.table('incident_notifications').select('*').execute().data[0]
+    caller=AuthenticatedUser(id=s['id'],full_name='Staff',role='hospital_staff',status='active',hospital_id=h['id'])
+    inbox=HospitalInbox()
+    alert=inbox.get_authorized_alert(notification['id'],caller)
+    assert alert.incident.device_code=='TEST-DEVICE'
+    assert alert.incident.vehicle.registration=='TEST-1'
+    assert alert.incident.owner.full_name=='Owner'
+    assert inbox.list_hospital_alerts(caller)[0].incident.owner.full_name=='Owner'
+    assert 'secret_hash' not in alert.model_dump_json()
+    assert 'user_id' not in alert.incident.owner.model_dump()
+    outsider=AuthenticatedUser(id=uuid4(),full_name='Other',role='hospital_staff',status='active',hospital_id=uuid4())
+    assert inbox.list_hospital_alerts(outsider)==[]
+    with pytest.raises(HTTPException) as error:
+        inbox.get_authorized_alert(notification['id'],outsider)
+    assert error.value.status_code==404
+    with transaction() as conn:
+        update(conn,'incidents',{'vehicle_id':None},'id',i['id'])
+    unlinked=inbox.get_authorized_alert(notification['id'],caller)
+    assert unlinked.incident.vehicle is None and unlinked.incident.owner is None
+
+
 def test_cancel_before_deadline_and_no_routing(database):
     h,a,s,c,d=seed(); i=incident(d,c)
     with transaction() as conn: update(conn,'incidents',{'cancellation_deadline':now()+timedelta(seconds=30)},'id',i['id'])

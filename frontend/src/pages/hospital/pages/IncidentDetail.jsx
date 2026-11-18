@@ -4,6 +4,7 @@ import { useHospital } from "../HospitalContext";
 import { mapAlert } from "../hospitalApi";
 import { formatDateTime } from "../data";
 import { Badge, ResponseCountdown } from "../components/ui";
+import { incidentText } from "../../../utils/incidentText";
 
 export default function IncidentDetail() {
   const { incidentId: alertId } = useParams();
@@ -173,7 +174,7 @@ export default function IncidentDetail() {
         <h4>Incident timeline</h4>
         <div className="hd-detail-timeline">
           {timeline?.length ? [...timeline].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)).map((event, index) =>
-            <div key={event.id ?? index}><span /><strong>{event.message || event.event_type}</strong>
+            <div key={event.id ?? index}><span /><strong>{incidentText(event.message || event.event_type)}</strong>
               <small>{event.actor_label || "System"} · {formatDateTime(Date.parse(event.created_at))}</small></div>
           ) : <p>{timeline ? "No timeline entries." : "Timeline unavailable."}</p>}
         </div>

@@ -237,6 +237,19 @@ class Query:
                 for row in rows:
                     row['hospital'] = get(conn,'hospitals','id',row['hospital_id'])
                     row['incident'] = get(conn,'incidents','id',row['incident_id'])
+                    incident = row['incident']
+                    if incident:
+                        device = get(conn, 'devices', 'id', incident['device_id'])
+                        incident['device_code'] = device.get('device_code') if device else None
+                        # Use the vehicle linked to the incident, not a device's
+                        # potentially changed current assignment. Expose only
+                        # the contact/registry fields needed by responders.
+                        vehicle = get(conn, 'vehicles', 'id', incident['vehicle_id']) if incident.get('vehicle_id') else None
+                        incident['vehicle'] = {k: vehicle.get(k) for k in
+                            ('id', 'registration', 'make', 'model', 'colour')} if vehicle else None
+                        owner = get(conn, 'vehicle_owners', 'id', vehicle['owner_id']) if vehicle and vehicle.get('owner_id') else None
+                        incident['owner'] = {k: owner.get(k) for k in
+                            ('id', 'full_name', 'phone', 'email')} if owner else None
             elif self.columns != '*':
                 keys = [s.strip() for s in self.columns.split(',')]
                 for key in keys:

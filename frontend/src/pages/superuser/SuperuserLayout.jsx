@@ -190,7 +190,7 @@ export default function SuperuserLayout({ embedded = false }) {
             <div>
               {countdowns.map(({ incident, remaining }) => (
                 <p key={incident.id}>
-                  <strong>{incident.id}</strong> suspected accident from{" "}
+                  <strong>{incident.id}</strong> accident detected from{" "}
                   <span className="su-mono">{incident.deviceId}</span> — 30-second false-alarm window:{" "}
                   {remaining > 0
                     ? <><strong>{remaining}s</strong> remaining before hospitals are notified.</>

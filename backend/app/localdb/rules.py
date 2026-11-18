@@ -112,7 +112,7 @@ def create_incident(conn,p):
     seconds=setting(conn,'cancellation_window_seconds',30)
     values={'device_id':dev['id'],'vehicle_id':dev['vehicle_id'],'prediction_id':prediction['id'],
         'detected_at':now(),'occurred_at':packet['recorded_end'],'occurred_at_estimated':True,
-        'model_score':prediction['score'],'impact_summary':'Suspected accident from uploaded IMU window',
+        'model_score':prediction['score'],'impact_summary':'accident detected from uploaded IMU window',
         'cancellation_window_seconds':seconds,'cancellation_deadline':now()+timedelta(seconds=seconds)}
     if location:
         values.update(latitude=location[0]['latitude'],longitude=location[0]['longitude'],location_recorded_at=location[0]['recorded_at'])

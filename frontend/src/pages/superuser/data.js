@@ -308,7 +308,7 @@ export function buildSeed(now = Date.now()) {
       cancellation: { windowSeconds: 30, outcome: "pending", by: null, at: null },
       notifications: [],
       timeline: [
-        { at: ago(1.5 * MIN), type: "detected", text: "Suspected accident detected by device ESP32-A02.", actor: "System" },
+        { at: ago(1.5 * MIN), type: "detected", text: "Accident detected by device ESP32-A02.", actor: "System" },
         { at: ago(1.5 * MIN), type: "window", text: "30 second local cancellation window started.", actor: "System" },
       ],
       notes: [],
@@ -326,7 +326,7 @@ export function buildSeed(now = Date.now()) {
         { hospitalId: "HSP-001", status: "notified", notifiedAt: ago(13.4 * MIN), acknowledgedAt: null, respondedAt: null, reason: null },
       ],
       timeline: [
-        { at: ago(14 * MIN), type: "detected", text: "Suspected accident detected by device ESP32-A01.", actor: "System" },
+        { at: ago(14 * MIN), type: "detected", text: "Accident detected by device ESP32-A01.", actor: "System" },
         { at: ago(13.5 * MIN), type: "window", text: "Cancellation window expired without cancellation.", actor: "System" },
         { at: ago(13.4 * MIN), type: "notified", text: "Bindura Hospital notified (nearest active hospital).", actor: "System" },
       ],
@@ -346,7 +346,7 @@ export function buildSeed(now = Date.now()) {
         { hospitalId: "HSP-004", status: "notified", notifiedAt: ago(46.4 * MIN), acknowledgedAt: null, respondedAt: null, reason: null },
       ],
       timeline: [
-        { at: ago(52 * MIN), type: "detected", text: "Suspected accident detected by device ESP32-A03.", actor: "System" },
+        { at: ago(52 * MIN), type: "detected", text: "Accident detected by device ESP32-A03.", actor: "System" },
         { at: ago(51.5 * MIN), type: "window", text: "Cancellation window expired without cancellation.", actor: "System" },
         { at: ago(51.4 * MIN), type: "notified", text: "Mazowe District Hospital notified.", actor: "System" },
         { at: ago(46.4 * MIN), type: "timeout", text: "No acknowledgment from Mazowe District Hospital within 5 minutes.", actor: "System" },
@@ -367,7 +367,7 @@ export function buildSeed(now = Date.now()) {
         { hospitalId: "HSP-003", status: "accepted", notifiedAt: ago(3 * HOUR - 0.6 * MIN), acknowledgedAt: ago(3 * HOUR - 2 * MIN), respondedAt: ago(3 * HOUR - 4 * MIN), reason: null },
       ],
       timeline: [
-        { at: ago(3 * HOUR), type: "detected", text: "Suspected accident detected by device ESP32-A05.", actor: "System" },
+        { at: ago(3 * HOUR), type: "detected", text: "Accident detected by device ESP32-A05.", actor: "System" },
         { at: ago(3 * HOUR - 0.5 * MIN), type: "window", text: "Cancellation window expired without cancellation.", actor: "System" },
         { at: ago(3 * HOUR - 0.6 * MIN), type: "notified", text: "Shamva District Hospital notified.", actor: "System" },
         { at: ago(3 * HOUR - 2 * MIN), type: "ack", text: "Shamva District Hospital acknowledged the alert.", actor: "Night shift lead" },
@@ -388,7 +388,7 @@ export function buildSeed(now = Date.now()) {
         { hospitalId: "HSP-001", status: "acknowledged", notifiedAt: ago(6 * HOUR - 0.6 * MIN), acknowledgedAt: ago(6 * HOUR - 1.5 * MIN), respondedAt: null, reason: null },
       ],
       timeline: [
-        { at: ago(6 * HOUR), type: "detected", text: "Suspected accident detected by device ESP32-A01.", actor: "System" },
+        { at: ago(6 * HOUR), type: "detected", text: "Accident detected by device ESP32-A01.", actor: "System" },
         { at: ago(6 * HOUR - 0.5 * MIN), type: "window", text: "Cancellation window expired without cancellation.", actor: "System" },
         { at: ago(6 * HOUR - 0.6 * MIN), type: "notified", text: "Bindura Hospital notified.", actor: "System" },
         { at: ago(6 * HOUR - 1.5 * MIN), type: "ack", text: "Bindura Hospital acknowledged the alert.", actor: "Response operator" },
@@ -406,7 +406,7 @@ export function buildSeed(now = Date.now()) {
       cancellation: { windowSeconds: 30, outcome: "cancelled", by: "Project team (vehicle page)", at: ago(1 * DAY - 0.2 * MIN) },
       notifications: [],
       timeline: [
-        { at: ago(1 * DAY), type: "detected", text: "Suspected accident detected by device ESP32-TEST.", actor: "System" },
+        { at: ago(1 * DAY), type: "detected", text: "Accident detected by device ESP32-TEST.", actor: "System" },
         { at: ago(1 * DAY - 0.2 * MIN), type: "cancelled", text: "Cancelled as a false alarm during the cancellation window.", actor: "Project team" },
       ],
       notes: [],
@@ -425,7 +425,7 @@ export function buildSeed(now = Date.now()) {
         { hospitalId: "HSP-001", status: "accepted", notifiedAt: ago(2 * DAY - 2.1 * MIN), acknowledgedAt: ago(2 * DAY - 3 * MIN), respondedAt: ago(2 * DAY - 4 * MIN), reason: null },
       ],
       timeline: [
-        { at: ago(2 * DAY), type: "detected", text: "Suspected accident detected by device ESP32-A02.", actor: "System" },
+        { at: ago(2 * DAY), type: "detected", text: "Accident detected by device ESP32-A02.", actor: "System" },
         { at: ago(2 * DAY - 0.5 * MIN), type: "window", text: "Cancellation window expired without cancellation.", actor: "System" },
         { at: ago(2 * DAY - 0.6 * MIN), type: "notified", text: "Harare Central Hospital notified.", actor: "System" },
         { at: ago(2 * DAY - 1.4 * MIN), type: "ack", text: "Harare Central Hospital acknowledged the alert.", actor: "Trauma desk" },

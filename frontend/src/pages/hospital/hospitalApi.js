@@ -1,4 +1,5 @@
 import { API_BASE_URL as base } from '../../config/api';
+import { incidentText } from '../../utils/incidentText';
 
 export async function hospitalRequest(token, path, { signal, method = "GET", body } = {}) {
   if (!token) throw new Error("Sign in again to access hospital alerts.");
@@ -33,11 +34,11 @@ export function mapAlert(alert) {
   return {
     id: alert.id, incidentId: alert.incident_id, code: incident.code ?? alert.incident_id,
     hospital: alert.hospital, status,
-    device: incident.device_code ?? "Device unavailable",
+    device: incident.device_code ?? incident.device_id ?? "Device unavailable",
     location: incident.location_label || (hasLocation ? "GPS coordinates available" : "Location unavailable"),
     lat: hasLocation ? incident.latitude : null, lng: hasLocation ? incident.longitude : null,
     score: score != null && Number.isFinite(Number(score)) ? Number(score) : null,
-    impactSummary: incident.impact_summary,
+    impactSummary: incidentText(incident.impact_summary),
     created: timestamp(alert.notified_at),
     detected: timestamp(incident.detected_at),
     assignedAt: timestamp(alert.notified_at),

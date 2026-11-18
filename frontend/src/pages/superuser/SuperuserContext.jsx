@@ -2,12 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../auth/useAuth";
 import { SuperuserContext } from "./useSuperuser";
 import * as api from "./api";
+import { incidentText } from "../../utils/incidentText";
 
 const sections = ["overview","incidents","devices","hospitals","users","owners","vehicles","audit"];
 const empty = {incidents: [], devices: [], hospitals: [], users: [], owners: [], audit: []};
 const incidentView = (r, timeline = []) => ({
   id:r.id, code:r.code, deviceId:r.device_id, vehicleId:r.vehicle_id, predictionId:r.prediction_id, detectedAt:r.detected_at,
-  status:r.status, modelScore:r.model_score, impact:r.impact_summary,
+  status:r.status, modelScore:r.model_score, impact:incidentText(r.impact_summary),
   location:{label:r.location_label ?? r.location_status_label, lat:r.latitude, lng:r.longitude},
   cancellation:{windowSeconds:r.cancellation_window_seconds, deadline:r.cancellation_deadline,
     outcome:r.cancellation_outcome, by:r.cancelled_by_label, at:r.cancellation_resolved_at},
@@ -15,7 +16,7 @@ const incidentView = (r, timeline = []) => ({
     status:n.status, notifiedAt:n.notified_at, acknowledgedAt:n.acknowledged_at,
     respondedAt:n.responded_at, reason:n.decline_reason})),
   notes:(r.notes ?? []).map(n=>({at:n.created_at, text:n.body, actor:n.author_label})),
-  timeline:timeline.map(e=>({at:e.created_at, type:e.event_type, text:e.message, actor:e.actor_label})),
+  timeline:timeline.map(e=>({at:e.created_at, type:e.event_type, text:incidentText(e.message), actor:e.actor_label})),
 });
 
 export default function SuperuserProvider({ children }) {

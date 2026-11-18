@@ -75,7 +75,7 @@ export default function Overview() {
             <span>Faster coordination.</span>
           </h2>
           <p className="su-hero-text">
-            Follow each suspected accident from detection to hospital response, keep devices
+            Follow each accident detected from detection to hospital response, keep devices
             healthy and manage who can act on every alert.
           </p>
           <div className="su-hero-actions">
@@ -110,7 +110,7 @@ export default function Overview() {
         <StatCard
           label="Total incidents"
           value={stats.totalIncidents}
-          hint="Recorded suspected accidents"
+          hint="Recorded accidents detected"
           icon="alert"
           tone="red"
           to={`${BASE_PATH}/incidents`}
@@ -145,7 +145,7 @@ export default function Overview() {
         <Panel
           title="Recent incidents"
           count={incidents.length}
-          subtitle="Latest suspected accidents across all devices."
+          subtitle="Latest accidents detected across all devices."
           action={
             <Link to={`${BASE_PATH}/incidents`} className="su-link">
               View all <Icon name="chevronRight" size={14} />
