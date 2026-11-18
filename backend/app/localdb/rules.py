@@ -117,7 +117,7 @@ def create_incident(conn,p):
     if location:
         values.update(latitude=location[0]['latitude'],longitude=location[0]['longitude'],location_recorded_at=location[0]['recorded_at'])
     incident=insert(conn,'incidents',values)
-    event(conn,incident,'detected','Suspected accident detected from uploaded sensor window.')
+    event(conn,incident,'detected','accident detected from uploaded sensor window.')
     event(conn,incident,'window_started',f'{seconds} second cancellation window started.')
     return incident['id']
 
